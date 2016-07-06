@@ -39,7 +39,7 @@ def checkDivergence(main,grid):
   uhat_x = 1j*grid.k1*main.uhat
   vhat_y = diff_y(main.vhat)
   what_z = 1j*grid.k3*main.what
-  div = np.linalg.norm((uhat_x[:,0:-1,:] + vhat_y[:,0:-1,:] ))
+  div = np.linalg.norm((uhat_x[:,0:-1,:] + vhat_y[:,0:-1,:] + what_z[:,0:-1,:]))
   return div
 
 def diff_y(fhat):
