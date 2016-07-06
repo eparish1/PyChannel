@@ -134,7 +134,7 @@ def getRHS_vort(main,grid,myFFT):
 
 def lineSolve(main,grid,myFFT,i,I,I2):
   altarray = (-np.ones(grid.N2))**(np.linspace(0,grid.N2-1,grid.N2))
-  for k in range(0,grid.N3):
+  for k in range(0,grid.N3/2+1):
     if (i == 0 and k == 0):
       ### By continuity vhat = 0, don't need to solve for it.
       ### also by definition, p is the fixed pressure gradient, don't need to solve for it. 
