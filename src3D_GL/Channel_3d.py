@@ -56,7 +56,7 @@ while (main.t < main.et):
     string2 = '3DSolution/npsol' + str(main.iteration)
     main.u = myFFT.myifft3D(main.uhat)
     main.v = myFFT.myifft3D(main.vhat)
-    main.w = myFFT.myifft3D(main.vhat)
+    main.w = myFFT.myifft3D(main.what)
     np.savez(string2,u=main.u,v=main.v,w=main.w)
     #main.p = myFFT.myifft3D(main.phat)
     sys.stdout.write("===================================================================================== \n")
