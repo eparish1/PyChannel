@@ -35,16 +35,16 @@ class FFTclass:
 
     ## basic fourier transform in y for chebyshev variables
     ## Input is real full, output is imag truncated 
-    self.inval =   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3) ), 16, 'complex128')
-    self.outval=   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3) ), 16, 'complex128')
-    self.cfft_obj = pyfftw.FFTW(self.inval,self.outval,axes=(1,),\
-                    direction='FFTW_FORWARD', threads=nthreads)
+#    self.inval =   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3) ), 16, 'complex128')
+#    self.outval=   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3) ), 16, 'complex128')
+#    self.cfft_obj = pyfftw.FFTW(self.inval1,self.outval,axes=(1,),\
+#                    direction='FFTW_FORWARD', threads=nthreads)
     ## and inverse fourier transform in y for chebyshev variables
     ## Input is real full, output is imag truncated 
-    self.inval =   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3/2)+1 ), 16, 'complex128')
-    self.outval=   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3/2)+1 ), 16, 'complex128')
-    self.cifft_obj = pyfftw.FFTW(self.inval,self.outval,axes=(1,),\
-                    direction='FFTW_BACKWARD', threads=nthreads)
+#    self.inval =   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3/2)+1 ), 16, 'complex128')
+#    self.outval=   pyfftw.n_byte_align_empty((int(N1),2*int(N2-1),int(N3/2)+1 ), 16, 'complex128')
+#    self.cifft_obj = pyfftw.FFTW(self.inval,self.outval,axes=(1,),\
+#                    direction='FFTW_BACKWARD', threads=nthreads)
 
 
 
@@ -55,8 +55,8 @@ class FFTclass:
       umod = np.zeros((N1,2*N2,N3/2+1),dtype='complex')
       umod[:,0:N2+1,:] = u[:,0:N2+1,:]
       umod[:,N2+1:2*N2,:] = np.fliplr(u)[:,1:-1,:]
-      wtilde = self.cifft_obj(umod[:,:,:]*1.) ## yes! actually the ifft. only god knows why
-#      wtilde = scipy.fftpack.ifft(umod,axis=1) ## yes! actually the ifft. only god knows why
+#      wtilde = self.cifft_obj(umod[:,:,:]*1.) ## yes! actually the ifft. only god knows why
+      wtilde = scipy.fftpack.ifft(umod,axis=1) ## yes! actually the ifft. only god knows why
       uhat = np.zeros((N1,N2+1,N3/2+1),dtype='complex')
       uhat[:,0,:] = wtilde[:,0,:]
       uhat[:,1:-1,:] = wtilde[:,1:N2,:]*2.
@@ -74,8 +74,9 @@ class FFTclass:
       umod[:,0,:] = utmp[:,0,:]
       umod[:,1:N2+1,:] = utmp[:,1::,:]/2.
       umod[:,N2+1::,:] = np.fliplr(utmp)[:,1:-1,:]/2.
-      utmp2 = np.empty((N1,(N2)*2,N3))
-      utmp2[:,:,:] = self.cfft_obj(umod[:,:,:]*1.) #again, yes. Actually the fft
+      utmp2 = np.empty((N1,(N2)*2,N3),dtype='complex')
+#      utmp2[:,:,:] = self.cfft_obj(umod[:,:,:]*1.) #again, yes. Actually the fft
+      utmp2[:,:,:] = scipy.fftpack.fft(umod,axis=1)
       return np.real(utmp2[:,0:N2+1,:])
 
     self.myfft3D = myfft3D

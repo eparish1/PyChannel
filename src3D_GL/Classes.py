@@ -46,13 +46,15 @@ class gridclass:
     self.N1 = N1
     self.N2 = N2
     self.N3 = N3
+    L1 = np.amax(x) - np.amin(x) + np.abs(x[1,0,0] - x[0,0,0])
+    L3 = np.amax(z) - np.amin(z) + np.abs(z[0,0,1] - z[0,0,0])
     self.x = x
     self.y = y
     self.z = z
     self.dx = x[1,0] - x[0,0]
-    k1 = np.fft.fftshift( np.linspace(-N1/2,N1/2-1,N1) )
+    k1 = np.fft.fftshift( np.linspace(-N1/2,N1/2-1,N1) ) * 2. * np.pi / L1
     k2 = np.fft.fftshift( np.linspace(-N2/2,N2/2-1,N2) ) #dummy 
-    k3 = np.linspace(0,N3/2,N3/2+1) 
+    k3 = np.linspace(0,N3/2,N3/2+1) * 2. * np.pi / L3
 
     self.k2,self.k1,self.k3 = np.meshgrid(k2,k1,k3)
     self.ksqr = self.k1*self.k1 + self.k3*self.k3 
