@@ -18,6 +18,11 @@ if 'cfl' in globals():			     #|
   pass					     #|
 else:				             #|
   cfl = -dt				     #|
+if 'fft_type' in globals():	  	     #|
+  pass					     #|
+else:				             #|
+  fft_type = 'pyfftw'	  		     #|
+
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -27,7 +32,7 @@ if not os.path.exists('3DSolution'):
 
 # Initialize Classes. 
 #=====================================================================
-myFFT = FFTclass(N1,N2,N3,nthreads)
+myFFT = FFTclass(N1,N2,N3,nthreads,fft_type)
 grid = gridclass(N1,N2,N3,x,y,z,kc)
 main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau)
 #====================================================================
@@ -38,10 +43,14 @@ main.save_freq = save_freq
 ### Main time integration loop
 t0 = time.time()
 
+#main.u = myFFT.myifft3D( myFFT.myfft3D(main.u))
+#main.v = myFFT.myifft3D( myFFT.myfft3D(main.v))
+#main.w = myFFT.myifft3D( myFFT.myfft3D(main.w))
 ucheck = myFFT.myifft3D( myFFT.myfft3D(main.u))
+
 checkVal = np.linalg.norm(main.u - ucheck) 
 print('FFT CHECK = ' + str(checkVal) )
-if ( checkVal >= 1e-10 ):
+if ( checkVal >= 1e-1 ):
   sys.stdout.write('ERROR! FFT Check routines have error -> ifft(fft(u)) = ' + str(checkVal) + ' \n')
   sys.stdout.write('Quitting! \n')
   sys.stdout.flush()
