@@ -1,5 +1,6 @@
 import threading
 import scipy
+import time
 import sys
 import scipy.sparse.linalg
 import multiprocessing as mp
@@ -161,10 +162,12 @@ def lineSolve(main,grid,myFFT,i,I,I2):
       main.what[i,:,k] = np.linalg.solve(LHSMAT,RHSw)
       main.vhat[i,:,k] = 0. 
     else:
+      t0 = time.time()
       ## SOLUTION VECTOR LOOKS LIKE
       #[ u0,v0,w0,ph0,u1,v1,w1,ph1,...,un,vn,wn]
       ## Form linear matrix for Crank Nicolson terms
       F = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
+      #F = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
       F[0::4,0::4] = -main.nu*( grid.A2[:,:] - grid.ksqr[i,0,k]*I2[:,:] )###Viscous terms
       F[1::4,1::4] = F[0::4,0::4]  ### put into v eqn as well
       F[2::4,2::4] = F[0::4,0::4]  ### put into w eqn as well
@@ -179,6 +182,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
       RHS[2::4] = main.what[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[i,2::3,k] - main.RHS_explicit_old[i,2::3,k]) + main.dt/2.*main.RHS_implicit[i,2::3,k]
 
       LHSMAT = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
+      #LHSMAT = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
       ## insert in the linear contribution for the momentum equations
       LHSMAT[:,:] = I + 0.5*main.dt*F[:,:]
       ## Now add the continuity equation (evaluated at half grid points)
@@ -201,17 +205,20 @@ def lineSolve(main,grid,myFFT,i,I,I2):
       LHSMAT[-3,0::4] = altarray[:]
       LHSMAT[-2,1::4] = altarray[:]
       LHSMAT[-1,2::4] = altarray[:]
-  
-      U = np.linalg.solve(LHSMAT,RHS)
-  #    U = (scipy.sparse.linalg.gmres(LHSMAT,RHS, tol=1e-9) )[0]
+
+      t1 = time.time() 
+  #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
+  #    U = solver(RHS)
+  #    U = np.linalg.solve(LHSMAT,RHS)
+  #    U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS) )
+      U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
+
       main.uhat[i,:,k] = U[0::4]
       main.vhat[i,:,k] = U[1::4]
       main.what[i,:,k] = U[2::4]
       main.phat[i,0:-1,k] = U[3::4]
       main.LHSMAT = LHSMAT
       main.RHS = RHS
-
-
 
 
 
@@ -223,9 +230,33 @@ def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
 
 def advance_AdamsCrank(main,grid,myFFT):
   main.RHS_explicit_old[:,:,:] = main.RHS_explicit[:,:,:]
+  t1 = time.time()
   getRHS_vort(main,grid,myFFT)
+  #sys.stdout.write('RHS calc time = ' + str(time.time() - t1) + '\n')
   I = np.eye(grid.N2*4-1)
   I2 = np.eye(grid.N2)
+  t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
-  #main.uhat = filt2(main.uhat,grid)
-  #main.vhat = filt2(main.vhat,grid)
+
+#  nthreads = 2
+#  main.thread_range = np.zeros((nthreads,2))
+#  delta_i = int(grid.N1/nthreads)
+#  for i in range(0,nthreads):
+#    main.thread_range[i,0] = i*delta_i
+#    main.thread_range[i,1] = (i+1)*delta_i
+#  main.thread_range[-1,1] = grid.N1 #overwrite in case of a non-divisiable range
+#
+#  que = []
+#  procs = []
+#  for thread_num in range(0,nthreads):
+#    p = mp.Process(target=solveBlock,args=(main,grid,myFFT,I,I2,int(main.thread_range[thread_num,0]),int(main.thread_range[thread_num,1]) ) )
+#    procs.append(p)
+#    p.start()
+#
+#  for p in procs:
+#      p.join()
+#  print('done')
+#
+  #sys.stdout.write('Solve time = ' + str(time.time() - t2)  + '\n')
+  sys.stdout.flush()
+
