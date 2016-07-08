@@ -167,6 +167,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
       F = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
       F[0::4,0::4] = -main.nu*( grid.A2[:,:] - grid.ksqr[i,0,k]*I2[:,:] )###Viscous terms
       F[1::4,1::4] = F[0::4,0::4]  ### put into v eqn as well
+      F[2::4,2::4] = F[0::4,0::4]  ### put into w eqn as well
       np.fill_diagonal( F[0::4,3::4],1j*grid.k1[i,0,k] )  ## now add pressure to u eqn
       F[1:-2:4,3::4] = grid.A1p[:,:]                      ## v eqn
       np.fill_diagonal( F[2::4,3::4],1j*grid.k3[i,0,k] )  ## w eqn
