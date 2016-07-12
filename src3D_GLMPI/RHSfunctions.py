@@ -108,14 +108,11 @@ def getRHS_vort(main,grid,myFFT):
 
 
   vsqrhat = 0.5*( uuhat + vvhat + wwhat)
-  uhatRHS_C = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP ### mean pressure gradient only
-  vhatRHS_C = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    ) 
-  whatRHS_C = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )  
-
  
-  main.RHS_explicit[:,0::3,:] = uhatRHS_C[:,:,:]
-  main.RHS_explicit[:,1::3,:] = vhatRHS_C[:,:,:]
-  main.RHS_explicit[:,2::3,:] = whatRHS_C[:,:,:]
+  main.RHS_explicit[0] = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP ### mean pressure gradient only
+  main.RHS_explicit[1] = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    ) 
+  main.RHS_explicit[2] = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )  
+
  
   uhat_xx = -grid.k1**2*main.uhat
   uhat_yy = diff_y2(main.uhat)
@@ -130,27 +127,27 @@ def getRHS_vort(main,grid,myFFT):
   what_zz= -grid.k3**2*main.what
 
 
-  main.RHS_implicit[:,0::3,:] = main.nu*(uhat_xx + uhat_yy + uhat_zz) - 1j*grid.k1*main.phat
-  main.RHS_implicit[:,1::3,:] = main.nu*(vhat_xx + vhat_yy + vhat_zz) - diff_y(main.phat)
-  main.RHS_implicit[:,2::3,:] = main.nu*(what_xx + what_yy + what_zz) - 1j*grid.k3*main.phat
+  main.RHS_implicit[0] = main.nu*(uhat_xx + uhat_yy + uhat_zz) - 1j*grid.k1*main.phat
+  main.RHS_implicit[1] = main.nu*(vhat_xx + vhat_yy + vhat_zz) - diff_y(main.phat)
+  main.RHS_implicit[2] = main.nu*(what_xx + what_yy + what_zz) - 1j*grid.k3*main.phat
 
 
 
 def lineSolve(main,grid,myFFT,i,I,I2):
   altarray = (-np.ones(grid.N2))**(np.linspace(0,grid.N2-1,grid.N2))
   for k in range(0,grid.N3/2+1):
-    if (i == 0 and k == 0):
+    if (grid.k1[i,0,k] == 0 and grid.k3[i,0,k] == 0):
       ### By continuity vhat = 0, don't need to solve for it.
       ### also by definition, p is the fixed pressure gradient, don't need to solve for it. 
       ### Just need to find u and w
       F = np.zeros((grid.N2,grid.N2),dtype='complex')
       F[:,:] =  -main.nu*( grid.A2[:,:]  )
       RHSu = np.zeros((grid.N2),dtype='complex')
-      RHSu[:] = main.uhat[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[i,0::3,k] - main.RHS_explicit_old[i,0::3,k]) + \
-                main.dt/2.*( main.RHS_implicit[i,0::3,k] )
+      RHSu[:] = main.uhat[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[0,i,:,k] - main.RHS_explicit_old[0,i,:,k]) + \
+                main.dt/2.*( main.RHS_implicit[0,i,:,k] )
       RHSw = np.zeros((grid.N2),dtype='complex')
-      RHSw[:] = main.what[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[i,2::3,k] - main.RHS_explicit_old[i,2::3,k]) + \
-                main.dt/2.*( main.RHS_implicit[i,2::3,k] )
+      RHSw[:] = main.what[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[2,i,:,k] - main.RHS_explicit_old[2,i,:,k]) + \
+                main.dt/2.*( main.RHS_implicit[2,i,:,k] )
 
       ## Now create entire LHS matrix
       LHSMAT = np.zeros((grid.N2,grid.N2),dtype='complex')
@@ -180,9 +177,9 @@ def lineSolve(main,grid,myFFT,i,I,I2):
  
       ## Now create RHS solution vector
       RHS = np.zeros((grid.N2*4-1),dtype='complex')
-      RHS[0::4] = main.uhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[i,0::3,k] - main.RHS_explicit_old[i,0::3,k]) + main.dt/2.*main.RHS_implicit[i,0::3,k]
-      RHS[1::4] = main.vhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[i,1::3,k] - main.RHS_explicit_old[i,1::3,k]) + main.dt/2.*main.RHS_implicit[i,1::3,k]
-      RHS[2::4] = main.what[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[i,2::3,k] - main.RHS_explicit_old[i,2::3,k]) + main.dt/2.*main.RHS_implicit[i,2::3,k]
+      RHS[0::4] = main.uhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[0,i,:,k] - main.RHS_explicit_old[0,i,:,k]) + main.dt/2.*main.RHS_implicit[0,i,:,k]
+      RHS[1::4] = main.vhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[1,i,:,k] - main.RHS_explicit_old[1,i,:,k]) + main.dt/2.*main.RHS_implicit[1,i,:,k]
+      RHS[2::4] = main.what[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[2,i,:,k] - main.RHS_explicit_old[2,i,:,k]) + main.dt/2.*main.RHS_implicit[2,i,:,k]
 
       LHSMAT = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
       #LHSMAT = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
@@ -213,9 +210,8 @@ def lineSolve(main,grid,myFFT,i,I,I2):
   #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
   #    U = solver(RHS)
   #    U = np.linalg.solve(LHSMAT,RHS)
-      U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL")  )
+      U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
   #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
-
       main.uhat[i,:,k] = U[0::4]
       main.vhat[i,:,k] = U[1::4]
       main.what[i,:,k] = U[2::4]
@@ -233,8 +229,8 @@ def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
 
 def advance_AdamsCrank(main,grid,myFFT):
   main.RHS_explicit_old[:,:,:] = main.RHS_explicit[:,:,:]
+  t1 = time.time() 
   getRHS_vort(main,grid,myFFT)
-  #sys.stdout.write('RHS calc time = ' + str(time.time() - t1) + '\n')
   I = np.eye(grid.N2*4-1)
   I2 = np.eye(grid.N2)
   t2 = time.time()

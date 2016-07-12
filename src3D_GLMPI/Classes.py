@@ -1,7 +1,6 @@
 import numpy as np
 import sys 
 import scipy
-from mpi4py import MPI
 from RHSfunctions import *
 
 class variables:
@@ -36,9 +35,9 @@ class variables:
 
     self.phat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
 
-    self.RHS_explicit =     np.zeros((grid.Npx,3*grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_explicit_old = np.zeros((grid.Npx,3*grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_implicit =     np.zeros((grid.Npx,3*grid.N2,grid.N3/2+1),dtype='complex')
+    self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
 
 
 class gridclass:
@@ -53,8 +52,7 @@ class gridclass:
     self.z = z
     k1 = np.fft.fftfreq(N1,1./N1)*2.*np.pi/L1
     k2 = np.fft.fftfreq(N2,1./N2)
-    #k3 = np.fft.rfftfreq(N3,1./N3)*2.*np.pi/L3
-    k3 = np.linspace(0,N3/2,N3/2+1)*2.*np.pi/L3
+    k3 = np.fft.rfftfreq(N3,1./N3)*2.*np.pi/L3
     self.k1,k2,self.k3 = np.meshgrid(k1[mpi_rank*self.Npx:(mpi_rank+1)*self.Npx],k2,k3,indexing='ij')
     self.ksqr = self.k1*self.k1 + self.k3*self.k3 
     self.A1  = getA1Mat(N2)
@@ -69,7 +67,6 @@ class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
     self.N1,self.N2,self.N3 = N1,N2,N3
     self.nthreads = nthreads
-
     if (fft_type == 'scipy'):
       if (mpi_rank == 0): 
         sys.stdout.write('Using scipy fft routines \n')
@@ -85,13 +82,13 @@ class FFTclass:
         Uc_hattmp = np.fft.fft(uhatmod,axis=1) ##yes! actually the FFT! only god knows why
         self.Uc_hat[:,:,:] = Uc_hattmp[:,0:N2,:]
         self.U_mpi[:] = np.rollaxis(self.Uc_hat.reshape(Npx, num_processes, Npy, N3/2+1) ,1)
-        comm.Alltoall([self.U_mpi, MPI.DOUBLE_COMPLEX],[self.Uc_hatT, MPI.DOUBLE_COMPLEX])
+        comm.Alltoall(self.U_mpi,self.Uc_hatT)
         u = np.fft.irfft2(self.Uc_hatT,axes=(0,2) ) * N1 * N3
         return u
 
       def myfft3D(u):
         self.Uc_hatT[:,:,:] = np.fft.rfft2(u,axes=(0,2) ) / (N1 * N3)
-        comm.Alltoall([self.Uc_hatT, MPI.DOUBLE_COMPLEX], [self.U_mpi, MPI.DOUBLE_COMPLEX] )
+        comm.Alltoall(self.Uc_hatT, self.U_mpi )
         self.Uc_hat[:,:,:] = np.rollaxis(self.U_mpi,1).reshape(self.Uc_hat.shape)
         Uc_hatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
         Uc_hatmod[:,0:N2,:] = self.Uc_hat[:,0:N2,:]
