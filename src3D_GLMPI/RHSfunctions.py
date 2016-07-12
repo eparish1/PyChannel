@@ -213,8 +213,8 @@ def lineSolve(main,grid,myFFT,i,I,I2):
   #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
   #    U = solver(RHS)
   #    U = np.linalg.solve(LHSMAT,RHS)
-  #    U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS) )
-      U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
+      U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL")  )
+  #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
 
       main.uhat[i,:,k] = U[0::4]
       main.vhat[i,:,k] = U[1::4]

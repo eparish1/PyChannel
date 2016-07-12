@@ -1,7 +1,6 @@
 import numpy as np
 import time
 import os
-import pyfftw
 import time
 import scipy
 from evtk.hl import gridToVTK
@@ -68,11 +67,11 @@ while (main.t < main.et):
     if (mpi_rank == 0):
       string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
-      np.savez(string2,u=uGlobal,v=wGlobal,w=wGlobal)
+      np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
       #main.p = myFFT.myifft3D(main.phat)
       sys.stdout.write("===================================================================================== \n")
       sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )
-      sys.stdout.write('Div = ' + str( np.linalg.norm(div) )  + '\n')
+      sys.stdout.write('Div = ' + str( np.linalg.norm(divG) )  + '\n')
   
       sys.stdout.flush()
       
