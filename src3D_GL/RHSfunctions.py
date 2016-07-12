@@ -209,9 +209,9 @@ def lineSolve(main,grid,myFFT,i,I,I2):
       t1 = time.time() 
   #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
   #    U = solver(RHS)
-  #    U = np.linalg.solve(LHSMAT,RHS)
+      U = np.linalg.solve(LHSMAT,RHS)
   #    U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS) )
-      U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
+  #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-8) )[0]
 
       main.uhat[i,:,k] = U[0::4]
       main.vhat[i,:,k] = U[1::4]
@@ -237,26 +237,5 @@ def advance_AdamsCrank(main,grid,myFFT):
   I2 = np.eye(grid.N2)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
-
-#  nthreads = 2
-#  main.thread_range = np.zeros((nthreads,2))
-#  delta_i = int(grid.N1/nthreads)
-#  for i in range(0,nthreads):
-#    main.thread_range[i,0] = i*delta_i
-#    main.thread_range[i,1] = (i+1)*delta_i
-#  main.thread_range[-1,1] = grid.N1 #overwrite in case of a non-divisiable range
-#
-#  que = []
-#  procs = []
-#  for thread_num in range(0,nthreads):
-#    p = mp.Process(target=solveBlock,args=(main,grid,myFFT,I,I2,int(main.thread_range[thread_num,0]),int(main.thread_range[thread_num,1]) ) )
-#    procs.append(p)
-#    p.start()
-#
-#  for p in procs:
-#      p.join()
-#  print('done')
-#
-  #sys.stdout.write('Solve time = ' + str(time.time() - t2)  + '\n')
   sys.stdout.flush()
 

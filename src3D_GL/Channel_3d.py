@@ -11,7 +11,6 @@ from padding import *
 from RHSfunctions import *
 from pylab import *
 
-nthreads = 1.
 ## Check if variables exist
 #==============================================
 if 'cfl' in globals():			     #|
