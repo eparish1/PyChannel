@@ -41,7 +41,7 @@ def pad_2x(uhat,arrange):
   return uhat_pad
 
 
-def seperateModes(uhat_pad,arrange):
+def separateModes(uhat_pad,arrange):
   N1 = np.shape(uhat_pad)[0]/2
   N2 = np.shape(uhat_pad)[1]
   N3 = (np.shape(uhat_pad)[2] + 1)/2
