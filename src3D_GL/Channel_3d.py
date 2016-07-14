@@ -25,7 +25,10 @@ if 'fft_type' in globals():	  	     #|
   pass					     #|
 else:				             #|
   fft_type = 'pyfftw'	  		     #|
-
+if 'tau0' in globals():                      #|
+  pass                                       #|
+else:                                        #|
+  tau0 = 0.1                                 #|
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -37,7 +40,7 @@ if not os.path.exists('3DSolution'):
 #=====================================================================
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type)
 grid = gridclass(N1,N2,N3,x,y,z,kc)
-main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model)
+main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0)
 #====================================================================
 
 main.iteration = 0
@@ -55,9 +58,9 @@ checkVal = np.linalg.norm(main.u - ucheck)
 print('FFT CHECK = ' + str(checkVal) )
 if ( checkVal >= 1e-1 ):
   sys.stdout.write('ERROR! FFT Check routines have error -> ifft(fft(u)) = ' + str(checkVal) + ' \n')
-  sys.stdout.write('Quitting! \n')
+  #sys.stdout.write('Quitting! \n')
   sys.stdout.flush()
-  exit(0) 
+  #exit(0) 
 #========================================================================
 while (main.t < main.et):
   #------------- Save Output ------------------

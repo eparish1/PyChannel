@@ -106,7 +106,7 @@ def getRHS_vort_FM1(main,grid,myFFT):
 
 
   vsqrhat = 0.5*( uuhat + vvhat + wwhat)
-  PLu = -( wom2_hat -vom3_hat + 1j*grid.k1f*vsqrhat ) - main.dP ### mean pressure gradient only
+  PLu = -( wom2_hat -vom3_hat + 1j*grid.k1f*vsqrhat ) - pad_2x( main.dP ,1) ### mean pressure gradient only
   PLv = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    ) 
   PLw = -( vom1_hat -uom2_hat + 1j*grid.k3f*vsqrhat )  
 
@@ -116,21 +116,21 @@ def getRHS_vort_FM1(main,grid,myFFT):
   PLv_p, PLv_q = separateModes(PLv,1)
   PLw_p, PLw_q = separateModes(PLw,1)
 
-  PLu_qreal[:,:,:] = myFFT.ifft3d_pad2x(PLu_q)
-  PLv_qreal[:,:,:] = myFFT.ifft3d_pad2x(PLv_q)
-  PLw_qreal[:,:,:] = myFFT.ifft3d_pad2x(PLw_q)
+  PLu_qreal = myFFT.myifft3D_pad2x(PLu_q)
+  PLv_qreal = myFFT.myifft3D_pad2x(PLv_q)
+  PLw_qreal = myFFT.myifft3D_pad2x(PLw_q)
 
-  up_PLuq = unpad_2x( myFFT.fft3d_pad2x(u_pad*PLu_qreal),1)
-  vp_PLuq = unpad_2x( myFFT.fft3d_pad2x(v_pad*PLu_qreal),1)
-  wp_PLuq = unpad_2x( myFFT.fft3d_pad2x(w_pad*PLu_qreal),1)
+  up_PLuq = unpad_2x( myFFT.myfft3D_pad2x(u_pad*PLu_qreal),1)
+  vp_PLuq = unpad_2x( myFFT.myfft3D_pad2x(v_pad*PLu_qreal),1)
+  wp_PLuq = unpad_2x( myFFT.myfft3D_pad2x(w_pad*PLu_qreal),1)
 
-  up_PLvq = unpad_2x( myFFT.fft3d_pad2x(u_pad*PLv_qreal),1)
-  vp_PLvq = unpad_2x( myFFT.fft3d_pad2x(v_pad*PLv_qreal),1)
-  wp_PLvq = unpad_2x( myFFT.fft3d_pad2x(w_pad*PLv_qreal),1)
+  up_PLvq = unpad_2x( myFFT.myfft3D_pad2x(u_pad*PLv_qreal),1)
+  vp_PLvq = unpad_2x( myFFT.myfft3D_pad2x(v_pad*PLv_qreal),1)
+  wp_PLvq = unpad_2x( myFFT.myfft3D_pad2x(w_pad*PLv_qreal),1)
 
-  up_PLwq = unpad_2x( myFFT.fft3d_pad2x(u_pad*PLw_qreal),1)
-  vp_PLwq = unpad_2x( myFFT.fft3d_pad2x(v_pad*PLw_qreal),1)
-  wp_PLwq = unpad_2x( myFFT.fft3d_pad2x(w_pad*PLw_qreal),1)
+  up_PLwq = unpad_2x( myFFT.myfft3D_pad2x(u_pad*PLw_qreal),1)
+  vp_PLwq = unpad_2x( myFFT.myfft3D_pad2x(v_pad*PLw_qreal),1)
+  wp_PLwq = unpad_2x( myFFT.myfft3D_pad2x(w_pad*PLw_qreal),1)
 
   main.PLQLu =  -1j*grid.k1*up_PLuq - diff_y(vp_PLuq) - 1j*grid.k3*wp_PLuq - \
           1j*grid.k1*up_PLuq - diff_y(up_PLvq) - 1j*grid.k3*up_PLwq 
@@ -141,12 +141,12 @@ def getRHS_vort_FM1(main,grid,myFFT):
   main.PLQLw =  -1j*grid.k1*up_PLwq - diff_y(vp_PLwq) - 1j*grid.k3*wp_PLwq -\
           1j*grid.k1*wp_PLuq - diff_y(wp_PLvq) - 1j*grid.k3*wp_PLwq 
 
-  main.RHS_explicit[0] = unpad_2x(PLu[:,:,:]) + main.w0_u[:,:,:,0]
-  main.RHS_explicit[1] = unpad_2x(PLv[:,:,:]) + main.w0_v[:,:,:,0]
-  main.RHS_explicit[2] = unpad_2x(PLw[:,:,:]) + main.w0_w[:,:,:,0]
-  main.RHS_explicit[3] = main.PLQLu
-  main.RHS_explicit[4] = main.PLQLv
-  main.RHS_explicit[5] = main.PLQLw
+  main.RHS_explicit[0] = unpad_2x(PLu[:,:,:],1) + main.w0_u[:,:,:,0]
+  main.RHS_explicit[1] = unpad_2x(PLv[:,:,:],1) + main.w0_v[:,:,:,0]
+  main.RHS_explicit[2] = unpad_2x(PLw[:,:,:],1) + main.w0_w[:,:,:,0]
+  main.RHS_explicit[3] = 2.*main.PLQLu
+  main.RHS_explicit[4] = 2.*main.PLQLv
+  main.RHS_explicit[5] = 2.*main.PLQLw
 
 
  
@@ -346,22 +346,21 @@ def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
 def advance_AdamsCrank(main,grid,myFFT):
   main.RHS_explicit_old[:,:,:] = main.RHS_explicit[:,:,:]
   t1 = time.time()
-  getRHS_vort(main,grid,myFFT)
+  main.getRHS(main,grid,myFFT)
   #sys.stdout.write('RHS calc time = ' + str(time.time() - t1) + '\n')
   I = np.eye(grid.N2*4-1)
   I2 = np.eye(grid.N2)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
   if (main.turb_model == 'FM1'):
-    main.w0_u[:,:,:,0] =  (main.w0_u[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[3,i,:,k] - \
-                          main.RHS_explicit_old[3,i,:,k]) + main.dt/2.*main.RHS_implicit[3,i,:,k] )\
+    main.w0_u[:,:,:,0] =  (main.w0_u[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[3] - \
+                          main.RHS_explicit_old[3]) + main.dt/2.*main.RHS_implicit[3] )\
                           *main.tau0/(main.dt + main.tau0)
-    main.w0_v[:,:,:,0] =  (main.w0_v[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[4,i,:,k] - \
-                          main.RHS_explicit_old[4,i,:,k]) + main.dt/2.*main.RHS_implicit[4,i,:,k] )\
+    main.w0_v[:,:,:,0] =  (main.w0_v[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[4] - \
+                          main.RHS_explicit_old[4]) + main.dt/2.*main.RHS_implicit[4] )\
                           *main.tau0/(main.dt + main.tau0)
-    main.w0_w[:,:,:,0] =  (main.w0_w[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[5,i,:,k] - \
-                          main.RHS_explicit_old[5,i,:,k]) + main.dt/2.*main.RHS_implicit[5,i,:,k] )\
+    main.w0_w[:,:,:,0] =  (main.w0_w[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[5] - \
+                          main.RHS_explicit_old[5]) + main.dt/2.*main.RHS_implicit[5] )\
                           *main.tau0/(main.dt + main.tau0)
-
 
 

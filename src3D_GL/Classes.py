@@ -5,7 +5,7 @@ import pyfftw
 from RHSfunctions import *
 
 class variables:
-  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model):
+  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0):
     self.t = t
     self.kc = np.amax(grid.k1)
     self.dt = dt
@@ -42,18 +42,18 @@ class variables:
       self.RHS_explicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_explicit_old = np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_implicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
-
+      self.getRHS = getRHS_vort
     if (turb_model == 'FM1'):
       sys.stdout.write('Running with FM1 Model \n')
       sys.stdout.flush()
       self.RHS_explicit =     np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_explicit_old = np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_implicit =     np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_v = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_w = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
-
-
+      self.w0_u = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.tau0 = tau0
+      self.getRHS = getRHS_vort_FM1
     self.u_exact = self.pbar_x/self.nu*(grid.y**2/2. - 0.5)
 
 class gridclass:
@@ -70,9 +70,15 @@ class gridclass:
     k1 = np.fft.fftshift( np.linspace(-N1/2,N1/2-1,N1) ) * 2. * np.pi / L1
     k2 = np.fft.fftshift( np.linspace(-N2/2,N2/2-1,N2) ) #dummy 
     k3 = np.linspace(0,N3/2,N3/2+1) * 2. * np.pi / L3
-
     self.k2,self.k1,self.k3 = np.meshgrid(k2,k1,k3)
     self.ksqr = self.k1*self.k1 + self.k3*self.k3 
+
+    k1f = np.fft.fftshift( np.linspace(-N1,N1-1,2*N1) ) * 2. * np.pi / L1
+    k2f = np.fft.fftshift( np.linspace(-N2,N2-1,N2) ) #dummy 
+    k3f = np.linspace(0,N3,N3+1) * 2. * np.pi / L3
+    self.k2f,self.k1f,self.k3f = np.meshgrid(k2f,k1f,k3f)
+    self.ksqrf = self.k1f*self.k1f + self.k3f*self.k3f 
+
 
     self.A1  = getA1Mat(x)
     self.A1p = getA1Mat_Truncate(x)
@@ -212,39 +218,68 @@ class FFTclass:
     if (fft_type == 'scipy'):
       sys.stdout.write('Using scipy fft routines \n')
       sys.stdout.flush()
-      ## Old slower fft routines using scipy
-      def myfft3D(u):
-        N1,N2,N3 = np.shape(u)
-        N2 = N2 - 1
-        u = np.fft.fft( np.fft.rfft(u[:,:,:],axis=2) , axis=0 )/( N1 * N3 )
-        umod = np.zeros((N1,2*N2,N3/2+1),dtype='complex')
-        umod[:,0:N2+1,:] = u[:,0:N2+1,:]
-        umod[:,N2+1:2*N2,:] = np.fliplr(u)[:,1:-1,:]
-        wtilde = scipy.fftpack.ifft(umod,axis=1) ## yes! actually the ifft. again, only god knows why
-        uhat = np.zeros((N1,N2+1,N3/2+1),dtype='complex')
-        uhat[:,0,:] = wtilde[:,0,:]
-        uhat[:,1:-1,:] = wtilde[:,1:N2,:]*2.
-        uhat[:,-1,:] = wtilde[:,N2,:]
-        return uhat
+#      ## Old slower fft routines using scipy
+#      def myfft3D(u):
+#        N1,N2,N3 = np.shape(u)
+#        N2 = N2 - 1
+#        u = np.fft.fft( np.fft.rfft(u[:,:,:],axis=2) , axis=0 )/( N1 * N3 )
+#        umod = np.zeros((N1,2*N2,N3/2+1),dtype='complex')
+#        umod[:,0:N2+1,:] = u[:,0:N2+1,:]
+#        umod[:,N2+1:2*N2,:] = np.fliplr(u)[:,1:-1,:]
+#        wtilde = scipy.fftpack.ifft(umod,axis=1) ## yes! actually the ifft. again, only god knows why
+#        uhat = np.zeros((N1,N2+1,N3/2+1),dtype='complex')
+#        uhat[:,0,:] = wtilde[:,0,:]
+#        uhat[:,1:-1,:] = wtilde[:,1:N2,:]*2.
+#        uhat[:,-1,:] = wtilde[:,N2,:]
+#        return uhat
+#
+#
+     # def myifft3D(uhat):
+     #   N1,N2,N3 = np.shape(uhat)
+     #   N3 = (N3 - 1)*2
+     #   N2 = N2 - 1
+     #   # first do the fourier transform
+     #   utmp = np.fft.ifft( np.fft.irfft(uhat,axis=2) , axis = 0) * N1 * N3
+     #   umod = np.zeros((N1,2*N2,N3),dtype='complex')
+     #   umod[:,0,:] = utmp[:,0,:]
+     #   umod[:,1:N2+1,:] = utmp[:,1::,:]/2.
+     #   umod[:,N2+1::,:] = np.fliplr(utmp)[:,1:-1,:]/2.
+     #   utmp2 = scipy.fftpack.fft(umod,axis=1) ##yes! actually the FFT! only god knows why
+     #   u = np.real(utmp2[:,0:N2+1,:])
+     #   return u
 
 
       def myifft3D(uhat):
         N1,N2,N3 = np.shape(uhat)
         N3 = (N3 - 1)*2
-        N2 = N2 - 1
-        # first do the fourier transform
-        utmp = np.fft.ifft( np.fft.irfft(uhat,axis=2) , axis = 0) * N1 * N3
-        umod = np.zeros((N1,2*N2,N3),dtype='complex')
-        umod[:,0,:] = utmp[:,0,:]
-        umod[:,1:N2+1,:] = utmp[:,1::,:]/2.
-        umod[:,N2+1::,:] = np.fliplr(utmp)[:,1:-1,:]/2.
-        utmp2 = scipy.fftpack.fft(umod,axis=1) ##yes! actually the FFT! only god knows why
-        u = np.real(utmp2[:,0:N2+1,:])
+        uhatmod = np.zeros((N1,2*(N2-1),N3/2+1),dtype='complex')
+        uhatmod[:,0,:] = uhat[:,0,:]
+        uhatmod[:,1:N2,:] = uhat[:,1::,:]/2
+        uhatmod[:,N2::,:] = np.fliplr(uhat)[:,1:-1,:]/2.
+        Uc_hat = np.fft.fft(uhatmod,axis=1) ##yes! actually the FFT! only god knows why
+        Uc_hat = Uc_hat[:,0:N2,:]
+        u = np.fft.irfft2(Uc_hat,axes=(0,2) ) * N1 * N3
         return u
+
+      def myfft3D(u):
+        N1,N2,N3 = np.shape(u)
+        Uc_hat = np.fft.rfft2(u,axes=(0,2) ) / (N1 * N3)
+        Uc_hatmod = np.zeros((N1,2*(N2-1),N3/2+1),dtype='complex')
+        Uc_hatmod[:,0:N2,:] = Uc_hat[:,0:N2,:]
+        Uc_hatmod[:,N2:2*(N2-1),:] = np.fliplr(Uc_hat)[:,1:-1,:]
+        wtilde = np.fft.ifft(Uc_hatmod,axis=1) ## yes! actually the ifft. again, only god knows why
+        uhat = np.zeros((N1,N2,N3/2+1),dtype='complex')
+        uhat[:,0,:] = wtilde[:,0,:]
+        uhat[:,1:-1,:] = wtilde[:,1:N2-1,:]*2.
+        uhat[:,-1,:] = wtilde[:,N2-1,:]
+        return uhat
+
       self.myfft3D = myfft3D
       self.myfft3D_pad = myfft3D
       self.myifft3D = myifft3D
       self.myifft3D_pad = myifft3D
+      self.myfft3D_pad2x = myfft3D
+      self.myifft3D_pad2x = myifft3D
 
 
     def dealias(fhat):
