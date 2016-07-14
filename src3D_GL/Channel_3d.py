@@ -13,6 +13,10 @@ from pylab import *
 
 ## Check if variables exist
 #==============================================
+if 'turb_model' in globals():                #|
+  pass                                       #|
+else:                                        #|
+  turb_model = 'DNS'                         #|
 if 'cfl' in globals():			     #|
   pass					     #|
 else:				             #|
@@ -33,7 +37,7 @@ if not os.path.exists('3DSolution'):
 #=====================================================================
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type)
 grid = gridclass(N1,N2,N3,x,y,z,kc)
-main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau)
+main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model)
 #====================================================================
 
 main.iteration = 0

@@ -5,7 +5,7 @@ import pyfftw
 from RHSfunctions import *
 
 class variables:
-  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau):
+  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model):
     self.t = t
     self.kc = np.amax(grid.k1)
     self.dt = dt
@@ -14,7 +14,7 @@ class variables:
     self.Re_tau = Re_tau
     self.pbar_x = -Re_tau**2*nu**2
     self.dP = myFFT.myfft3D(self.pbar_x*np.ones(np.shape(u)))
-
+    self.turb_model = turb_model
     self.u = np.zeros((grid.N1,grid.N2,grid.N3))
     self.u[:,:,:] = u[:,:,:]
     del u
@@ -36,9 +36,23 @@ class variables:
 
     self.phat = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
 
-    self.RHS_explicit =     np.zeros((grid.N1,3*grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_explicit_old = np.zeros((grid.N1,3*grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_implicit =     np.zeros((grid.N1,3*grid.N2,grid.N3/2+1),dtype='complex')
+    if (turb_model == 'DNS'):
+      sys.stdout.write('Running with no SGS \n')
+      sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+
+    if (turb_model == 'FM1'):
+      sys.stdout.write('Running with FM1 Model \n')
+      sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((6,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_v = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_w = np.zeros((grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+
 
     self.u_exact = self.pbar_x/self.nu*(grid.y**2/2. - 0.5)
 
