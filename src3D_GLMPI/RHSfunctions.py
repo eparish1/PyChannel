@@ -65,10 +65,10 @@ def diff_y2(uhat):
   return uhat2
 
 def getRHS_vort(main,grid,myFFT):
-  main.uhat = myFFT.dealias(main.uhat)
-  main.vhat = myFFT.dealias(main.vhat)
-  main.what = myFFT.dealias(main.what)
-  main.phat = myFFT.dealias(main.phat)
+  main.uhat = grid.dealias*main.uhat
+  main.vhat = grid.dealias*main.vhat
+  main.what = grid.dealias*main.what
+  main.phat = grid.dealias*main.phat
 
   u = myFFT.myifft3D(main.uhat)
   v = myFFT.myifft3D(main.vhat)
@@ -95,16 +95,16 @@ def getRHS_vort(main,grid,myFFT):
   vom1 = v*omega1
 
 
-  uuhat = myFFT.dealias( myFFT.myfft3D(uu) )
-  vvhat = myFFT.dealias( myFFT.myfft3D(vv) )
-  wwhat = myFFT.dealias( myFFT.myfft3D(ww) )
+  uuhat = grid.dealias*( myFFT.myfft3D(uu) )
+  vvhat = grid.dealias*( myFFT.myfft3D(vv) )
+  wwhat = grid.dealias*( myFFT.myfft3D(ww) )
 
-  vom3_hat = myFFT.dealias( myFFT.myfft3D(vom3) )
-  wom2_hat = myFFT.dealias( myFFT.myfft3D(wom2) )
-  uom3_hat = myFFT.dealias( myFFT.myfft3D(uom3) )
-  wom1_hat = myFFT.dealias( myFFT.myfft3D(wom1) )
-  uom2_hat = myFFT.dealias( myFFT.myfft3D(uom2) )
-  vom1_hat = myFFT.dealias( myFFT.myfft3D(vom1) )
+  vom3_hat = grid.dealias*( myFFT.myfft3D(vom3) )
+  wom2_hat = grid.dealias*( myFFT.myfft3D(wom2) )
+  uom3_hat = grid.dealias*( myFFT.myfft3D(uom3) )
+  wom1_hat = grid.dealias*( myFFT.myfft3D(wom1) )
+  uom2_hat = grid.dealias*( myFFT.myfft3D(uom2) )
+  vom1_hat = grid.dealias*( myFFT.myfft3D(vom1) )
 
 
   vsqrhat = 0.5*( uuhat + vvhat + wwhat)

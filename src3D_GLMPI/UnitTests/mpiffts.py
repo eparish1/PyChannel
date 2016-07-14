@@ -3,6 +3,7 @@ import sys
 sys.path.append('../')
 from Classes import FFTclass
 from RHSfunctions import diff_y
+from Classes import gridclass
 from mpi4py import MPI
 import time
 
@@ -44,7 +45,6 @@ L2 = 2.*np.pi
 L3 = 2.*np.pi
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank)
 
-
 dx =float( L1/N1 )
 dy =float( L2/N2 )
 dz =float( L3/N3 )
@@ -58,6 +58,8 @@ k1 = np.fft.fftfreq(N1,1./N1)*2.*np.pi/L1
 k2 = np.fft.fftfreq(N2,1./N2)*2.*np.pi/L2
 k3 = np.fft.rfftfreq(N3,1./N3)*2.*np.pi/L3
 k1,k2,k3 = np.meshgrid(k1[mpi_rank*Npx:(mpi_rank+1)*Npx],k2,k3,indexing='ij')
+kc = 8.
+grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm)
 
 
 
@@ -65,9 +67,9 @@ u = np.zeros(np.shape(x))
 u[:,:,:] =  L1/2.*np.sin(np.pi*y)*np.cos(4*np.pi*x/L1)*np.sin(2.*np.pi*z/L3)
 uhat = myFFT.myfft3D(u)
 
-ux = myFFT.myifft3D(1j*k1*uhat)
-uz = myFFT.myifft3D(1j*k3*uhat)
-uy = myFFT.myifft3D(diff_y(uhat))
+ux = myFFT.myifft3D(grid.dealias*1j*k1*uhat)
+uz = myFFT.myifft3D(grid.dealias*1j*k3*uhat)
+uy = myFFT.myifft3D(grid.dealias*diff_y(uhat))
 uxGlobal = allGather_physical(ux) 
 uyGlobal = allGather_physical(uy) 
 uzGlobal = allGather_physical(uz) 

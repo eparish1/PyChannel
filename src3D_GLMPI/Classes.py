@@ -61,7 +61,12 @@ class gridclass:
     self.xG = allGather_physical(self.x,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.yG = allGather_physical(self.y,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.zG = allGather_physical(self.z,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
-   
+    self.dealias = np.ones((self.Npx,N2,N3/2+1) )
+    for i in range(0,self.Npx):
+      if (abs(self.k1[i,0,0]) >= (self.N1/2)*2./3.*2.*np.pi/L1):
+        self.dealias[i,:,:] = 0.  
+    self.dealias[:,   int( (self.N2)/3. *2. )::,:] = 0.
+    self.dealias[:,:, int( (self.N3/2)*2./3. ):: ] = 0. 
 
 class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
@@ -110,13 +115,13 @@ class FFTclass:
 #      fhat[:,cutoff::,:] = 0.
 
       N1,N2,N3 = np.shape(fhat)
-      cutoff_y = int( (N2+1.)/3. *2. )
-      cutoff_z = int( (N3+1.)/3. *2. )
-      cutoff_x = int( (N1+1.)/3. *2. )
+      cutoff_x = int( (N1/2)/3. *2. )
+      cutoff_y = int( (N2+1)/3. *2. )
+      cutoff_z = int( (N3/2)/3. *2. )
 
+      
       fhat[:,cutoff_y::,:] = 0.
       fhat[:,:,cutoff_z::] = 0.
-      fhat[cutoff_x:-cutoff_x,:,:] = 0.
       return fhat
     self.dealias = dealias
 
