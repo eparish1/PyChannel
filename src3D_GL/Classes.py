@@ -69,7 +69,7 @@ class variables:
       # grid is homogeneous in x and z
       dx = grid.x[1,0,0] - grid.x[0,0,0]
       dz = grid.z[0,0,1] - grid.z[0,0,0]
-      self.Delta[1:-1] =(  dx *0.5*( grid.y[0,2::,0] - grid.y[0,0:-2,0] )*dz )**(1./3.)
+      self.Delta[1:-1] =(  abs(dx *0.5*( grid.y[0,2::,0] - grid.y[0,0:-2,0] )*dz ) )**(1./3.)
       self.Delta[0] = self.Delta[1]
       self.Delta[-1] = self.Delta[-2]
 
