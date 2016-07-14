@@ -54,6 +54,25 @@ class variables:
       self.w0_w = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.tau0 = tau0
       self.getRHS = getRHS_vort_FM1
+    if (turb_model == 'Smagorinsky'):
+      sys.stdout.write('Running with Smagorinsky Model \n')
+      sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.N1,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.getRHS = getRHS_vort_Smag
+      self.Delta = np.zeros(grid.N2)
+      ## filter width is inhomogeneous with delta = dx*dy*dz^{1/3}
+      # grid is homogeneous in x and z
+      dx = grid.x[1,0,0] - grid.x[0,0,0]
+      dz = grid.z[0,0,1] - grid.z[0,0,0]
+      self.Delta[1:-1] =(  dx *0.5*( grid.y[0,2::,0] - grid.y[0,0:-2,0] )*dz )**(1./3.)
+      self.Delta[0] = self.Delta[1]
+      self.Delta[-1] = self.Delta[-2]
+
     self.u_exact = self.pbar_x/self.nu*(grid.y**2/2. - 0.5)
 
 class gridclass:

@@ -174,6 +174,119 @@ def getRHS_vort_FM1(main,grid,myFFT):
 
 
 
+def getRHS_vort_Smag(main,grid,myFFT):
+  main.uhat = myFFT.dealias(main.uhat)
+  main.vhat = myFFT.dealias(main.vhat)
+  main.what = myFFT.dealias(main.what)
+  main.phat = myFFT.dealias(main.phat)
+
+  u_pad = myFFT.myifft3D_pad(pad(main.uhat,1))
+  v_pad = myFFT.myifft3D_pad(pad(main.vhat,1))
+  w_pad = myFFT.myifft3D_pad(pad(main.what,1))
+
+  ## compute vorticity
+  omegahat_1 = diff_y(main.what) - 1j*grid.k3*main.vhat
+  omegahat_2 = 1j*grid.k3*main.uhat - 1j*grid.k1*main.what
+  omegahat_3 = 1j*grid.k1*main.vhat - diff_y(main.uhat)
+
+  omega1_pad = myFFT.myifft3D_pad(pad(omegahat_1,1))
+  omega2_pad = myFFT.myifft3D_pad(pad(omegahat_2,1))
+  omega3_pad = myFFT.myifft3D_pad(pad(omegahat_3,1))
+
+  uu_pad = u_pad*u_pad
+  vv_pad = v_pad*v_pad
+  ww_pad = w_pad*w_pad
+
+  vom3_pad = v_pad*omega3_pad
+  wom2_pad = w_pad*omega2_pad
+  uom3_pad = u_pad*omega3_pad
+  wom1_pad = w_pad*omega1_pad
+  uom2_pad = u_pad*omega2_pad
+  vom1_pad = v_pad*omega1_pad
+
+
+  uuhat = myFFT.dealias( unpad(myFFT.myfft3D_pad(uu_pad),1) )
+  vvhat = myFFT.dealias( unpad(myFFT.myfft3D_pad(vv_pad),1) )
+  wwhat = myFFT.dealias( unpad(myFFT.myfft3D_pad(ww_pad),1) )
+
+  vom3_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(vom3_pad),1) )
+  wom2_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(wom2_pad),1)  )
+  uom3_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(uom3_pad),1)  )
+  wom1_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(wom1_pad),1) )
+  uom2_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(uom2_pad),1)  )
+  vom1_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(vom1_pad),1)  )
+
+
+
+
+  ## Smagorinsky
+  S11hat = 1j*grid.k1*main.uhat
+  S22hat = diff_y(main.vhat)
+  S33hat = 1j*grid.k3*main.what
+  S12hat = 0.5*(diff_y(main.uhat) + 1j*grid.k1*main.vhat)
+  S13hat = 0.5*(1j*grid.k3*main.uhat + 1j*grid.k1*main.what)
+  S23hat = 0.5*(1j*grid.k3*main.vhat + diff_y(main.what) )
+
+  S11real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+  S22real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+  S33real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+  S12real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+  S13real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+  S23real = np.zeros( (int(3./2.*grid.N1),int(grid.N2),int(3./2.*grid.N3)) )
+
+  S11real[:,:,:] = myFFT.myifft3D_pad(pad(S11hat,1))
+  S22real[:,:,:] = myFFT.myifft3D_pad(pad(S22hat,1))
+  S33real[:,:,:] = myFFT.myifft3D_pad(pad(S33hat,1))
+  S12real[:,:,:] = myFFT.myifft3D_pad(pad(S12hat,1))
+  S13real[:,:,:] = myFFT.myifft3D_pad(pad(S13hat,1))
+  S23real[:,:,:] = myFFT.myifft3D_pad(pad(S23hat,1))
+
+  S_magreal = np.sqrt( 2.*(S11real*S11real + S22real*S22real + S33real*S33real + \
+            2.*S12real*S12real + 2.*S13real*S13real + 2.*S23real*S23real ) )
+  nutreal = 0.16*main.Delta[None,:,None]*0.16*main.Delta[None,:,None]*np.abs(S_magreal)
+
+  tau11real = -2.*nutreal*S11real
+  tau22real = -2.*nutreal*S22real
+  tau33real = -2.*nutreal*S33real
+  tau12real = -2.*nutreal*S12real
+  tau13real = -2.*nutreal*S13real
+  tau23real = -2.*nutreal*S23real
+
+  tauhat = np.zeros((grid.N1,grid.N2,grid.N3/2+1,6),dtype='complex')
+  tauhat[:,:,:,0] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S11real ),1)  #11
+  tauhat[:,:,:,1] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S22real ),1)  #22
+  tauhat[:,:,:,2] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S33real ),1)  #33
+  tauhat[:,:,:,3] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S12real ),1)  #12
+  tauhat[:,:,:,4] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S13real ),1)  #13
+  tauhat[:,:,:,5] = unpad( myFFT.myfft3D_pad( -2.*nutreal*S23real ),1)  #23
+
+  main.w0_u[:,:,:,0] = -1j*grid.k1*tauhat[:,:,:,0] - diff_y(tauhat[:,:,:,3]) - 1j*grid.k3*tauhat[:,:,:,4] 
+  main.w0_v[:,:,:,0] = -1j*grid.k1*tauhat[:,:,:,3] - diff_y(tauhat[:,:,:,1]) - 1j*grid.k3*tauhat[:,:,:,5] 
+  main.w0_w[:,:,:,0] = -1j*grid.k1*tauhat[:,:,:,4] - diff_y(tauhat[:,:,:,5]) - 1j*grid.k3*tauhat[:,:,:,2] 
+
+  vsqrhat = 0.5*( uuhat + vvhat + wwhat)
+ 
+  main.RHS_explicit[0] = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP + main.w0_u[:,:,:,0] 
+  main.RHS_explicit[1] = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )           + main.w0_v[:,:,:,0] 
+  main.RHS_explicit[2] = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )           + main.w0_w[:,:,:,0] 
+ 
+  uhat_xx = -grid.k1**2*main.uhat
+  uhat_yy = diff_y2(main.uhat)
+  uhat_zz = -grid.k3**2*main.uhat
+
+  vhat_xx= -grid.k1**2*main.vhat
+  vhat_yy= diff_y2(main.vhat)
+  vhat_zz= -grid.k3**2*main.vhat
+
+  what_xx= -grid.k1**2*main.what
+  what_yy= diff_y2(main.what)
+  what_zz= -grid.k3**2*main.what
+
+
+  main.RHS_implicit[0] = main.nu*(uhat_xx + uhat_yy + uhat_zz) - 1j*grid.k1*main.phat
+  main.RHS_implicit[1] = main.nu*(vhat_xx + vhat_yy + vhat_zz) - diff_y(main.phat)
+  main.RHS_implicit[2] = main.nu*(what_xx + what_yy + what_zz) - 1j*grid.k3*main.phat
+
 
 
 def getRHS_vort(main,grid,myFFT):
