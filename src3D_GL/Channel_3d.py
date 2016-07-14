@@ -72,7 +72,14 @@ while (main.t < main.et):
     main.u = myFFT.myifft3D(main.uhat)
     main.v = myFFT.myifft3D(main.vhat)
     main.w = myFFT.myifft3D(main.what)
-    np.savez(string2,u=main.u,v=main.v,w=main.w)
+    if (main.turb_model == 'DNS'):
+      np.savez(string2,u=main.u,v=main.v,w=main.w)
+    if (main.turb_model == 'FM1'):
+      w0_up = myFFT.myifft3D(main.w0_u)
+      w0_vp = myFFT.myifft3D(main.w0_v)
+      w0_wp = myFFT.myifft3D(main.w0_w)
+      np.savez(string2,u=main.u,v=main.v,w=main.w,w0_u=w0_up,w0_v=w0_vp,w0_w=w0_wp)
+  
     #main.p = myFFT.myifft3D(main.phat)
     sys.stdout.write("===================================================================================== \n")
     sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )
