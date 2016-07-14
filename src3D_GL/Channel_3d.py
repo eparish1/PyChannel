@@ -75,9 +75,9 @@ while (main.t < main.et):
     if (main.turb_model == 'DNS'):
       np.savez(string2,u=main.u,v=main.v,w=main.w)
     if (main.turb_model == 'FM1'):
-      w0_up = myFFT.myifft3D(main.w0_u)
-      w0_vp = myFFT.myifft3D(main.w0_v)
-      w0_wp = myFFT.myifft3D(main.w0_w)
+      w0_up = myFFT.myifft3D(main.w0_u[:,:,:,0])
+      w0_vp = myFFT.myifft3D(main.w0_v[:,:,:,0])
+      w0_wp = myFFT.myifft3D(main.w0_w[:,:,:,0])
       np.savez(string2,u=main.u,v=main.v,w=main.w,w0_u=w0_up,w0_v=w0_vp,w0_w=w0_wp)
   
     #main.p = myFFT.myifft3D(main.phat)
