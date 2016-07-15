@@ -72,7 +72,9 @@ class variables:
       self.Delta[1:-1] =(  abs(dx *0.5*( grid.y[0,2::,0] - grid.y[0,0:-2,0] )*dz ) )**(1./3.)
       self.Delta[0] = self.Delta[1]
       self.Delta[-1] = self.Delta[-2]
-
+      ## add wall damping
+      self.wall_dist = abs(abs(grid.y[0,:,0]) - 1.)*self.Re_tau #y plus
+      self.Delta[:] = self.Delta* (1. - np.exp( -self.wall_dist / 25. ) )
     self.u_exact = self.pbar_x/self.nu*(grid.y**2/2. - 0.5)
 
 class gridclass:
