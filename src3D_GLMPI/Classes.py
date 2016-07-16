@@ -4,7 +4,7 @@ import scipy
 from RHSfunctions import *
 
 class variables:
-  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau):
+  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank):
     self.t = t
     self.kc = np.amax(grid.k1)
     self.dt = dt
@@ -35,13 +35,60 @@ class variables:
 
     self.phat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
 
-    self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-    self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    self.turb_model = turb_model
+    if (turb_model == 'DNS'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with no SGS \n')
+        sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.getRHS = getRHS_vort
 
+    if (turb_model == 'FM1'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with FM1 Model \n')
+        sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.tau0 = tau0
+      self.getRHS = getRHS_vort_FM1
+      
+    if (turb_model == 'Smagorinsky'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with Smagorinsky Model \n')
+        sys.stdout.write('Cs = ' + str(Cs) + ' \n')
+        sys.stdout.flush()
+      self.Cs = Cs
+      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.getRHS = getRHS_vort_Smag
+      Delta = np.zeros(grid.N2)
+      self.Delta = np.zeros(grid.Npy)
+      ## filter width is inhomogeneous with delta = dx*dy*dz^{1/3}
+      # grid is homogeneous in x and z
+      dx = grid.x[1,0,0] - grid.x[0,0,0]
+      dz = grid.z[0,0,1] - grid.z[0,0,0]
+      ydummy = np.cos( np.pi*np.linspace(0,grid.N2-1,grid.N2) /(grid.N2-1) )
+      Delta[1:-1] =(  abs(dx *0.5*( ydummy[2::] - ydummy[0:-2] )*dz ) )**(1./3.)
+      Delta[0] = self.Delta[1]
+      Delta[-1] = self.Delta[-2]
+      ## add wall damping
+      wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
+      Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) * self.Cs
+      sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
+      self.Delta[:] = Delta[sy]
 
 class gridclass:
-  def __init__(self,N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm):
+  def __init__(self,N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model):
     self.Npx = int(float(N1 / num_processes))
     self.Npy= int(float(N2 / num_processes))
     self.N1 = N1
@@ -67,6 +114,22 @@ class gridclass:
         self.dealias[i,:,:] = 0.  
     self.dealias[:,   int( (self.N2)/3. *2. )::,:] = 0.
     self.dealias[:,:, int( (self.N3/2)*2./3. ):: ] = 0. 
+
+    if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):
+      self.kcx = self.N1/3. * 2.*np.pi/L1
+      self.kcz = self.N3/3. * 2.*np.pi/L3
+
+    if (turb_model == 'FM1'):
+      self.kcx = self.N1/4. * 2.*np.pi/L1
+      self.kcz = self.N3/4. * 2.*np.pi/L3
+
+      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
+      for i in range(0,self.Npx):
+        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
+          self.dealias_2x[i,:,:] = 0.  
+      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+
 
 class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
@@ -110,20 +173,22 @@ class FFTclass:
 
 
     def dealias(fhat):
-#      N1,N2,N3 = np.shape(fhat)
-#      cutoff = int( (N2+1.)/3. *2. )
-#      fhat[:,cutoff::,:] = 0.
-
       N1,N2,N3 = np.shape(fhat)
       cutoff_x = int( (N1/2)/3. *2. )
       cutoff_y = int( (N2+1)/3. *2. )
       cutoff_z = int( (N3/2)/3. *2. )
-
-      
       fhat[:,cutoff_y::,:] = 0.
       fhat[:,:,cutoff_z::] = 0.
       return fhat
-    self.dealias = dealias
+
+    def dealias_y(fhat):
+      N1,N2,N3 = np.shape(fhat)
+      cutoff = int( (N2+1.)/3. *2. )
+      fhat[:,cutoff::,:] = 0.
+      return fhat
+
+
+    self.dealias_y = dealias_y
 
 
 

@@ -12,6 +12,10 @@ from pylab import *
 
 ## Check if variables exist
 #==============================================
+if 'turb_model' in globals():                #|
+  pass                                       #|
+else:                                        #|
+  turb_model = 'DNS'                         #|
 if 'cfl' in globals():			     #|
   pass					     #|
 else:				             #|
@@ -20,7 +24,14 @@ if 'fft_type' in globals():	  	     #|
   pass					     #|
 else:				             #|
   fft_type = 'pyfftw'	  		     #|
-
+if 'tau0' in globals():                      #|
+  pass                                       #|
+else:                                        #|
+  tau0 = 0.1                                 #|
+if 'Cs' in globals():                        #|
+  pass                                       #|
+else:                                        #|
+  Cs = 0.16                                  #|
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -31,8 +42,8 @@ if (mpi_rank == 0):
 # Initialize Classes. 
 #=====================================================================
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank)
-grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm)
-main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau)
+grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model)
+main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank)
 #====================================================================
 
 main.iteration = 0
@@ -64,10 +75,21 @@ while (main.t < main.et):
     uGlobal = allGather_physical(main.u,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     vGlobal = allGather_physical(main.v,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     wGlobal = allGather_physical(main.w,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
+    if (main.turb_model == 'FM1'):
+      wu = myFFT.myifft3D(main.w0_u[:,:,:,0] )
+      wv = myFFT.myifft3D(main.w0_v[:,:,:,0] )
+      ww = myFFT.myifft3D(main.w0_w[:,:,:,0] )
+      wuGlobal = allGather_physical(wu,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
+      wvGlobal = allGather_physical(wv,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
+      wwGlobal = allGather_physical(ww,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
+
     if (mpi_rank == 0):
       string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
-      np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
+      if (main.turb_model == 'FM1'):
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal)
+      else:
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
       #main.p = myFFT.myifft3D(main.phat)
       sys.stdout.write("===================================================================================== \n")
       sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )
