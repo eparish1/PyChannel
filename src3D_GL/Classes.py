@@ -5,7 +5,7 @@ import pyfftw
 from RHSfunctions import *
 
 class variables:
-  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0):
+  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs):
     self.t = t
     self.kc = np.amax(grid.k1)
     self.dt = dt
@@ -56,7 +56,9 @@ class variables:
       self.getRHS = getRHS_vort_FM1
     if (turb_model == 'Smagorinsky'):
       sys.stdout.write('Running with Smagorinsky Model \n')
+      sys.stdout.write('Cs = ' + str(Cs) + ' \n')
       sys.stdout.flush()
+      self.Cs = Cs
       self.RHS_explicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_explicit_old = np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_implicit =     np.zeros((3,grid.N1,grid.N2,grid.N3/2+1),dtype='complex')
@@ -74,7 +76,7 @@ class variables:
       self.Delta[-1] = self.Delta[-2]
       ## add wall damping
       self.wall_dist = abs(abs(grid.y[0,:,0]) - 1.)*self.Re_tau #y plus
-      self.Delta[:] = self.Delta* (1. - np.exp( -self.wall_dist / 25. ) )
+      self.Delta[:] = self.Delta* (1. - np.exp( -self.wall_dist / 25. ) ) * self.Cs
     self.u_exact = self.pbar_x/self.nu*(grid.y**2/2. - 0.5)
 
 class gridclass:

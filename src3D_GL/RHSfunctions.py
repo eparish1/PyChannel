@@ -243,7 +243,7 @@ def getRHS_vort_Smag(main,grid,myFFT):
 
   S_magreal = np.sqrt( 2.*(S11real*S11real + S22real*S22real + S33real*S33real + \
             2.*S12real*S12real + 2.*S13real*S13real + 2.*S23real*S23real ) )
-  nutreal = 0.16*main.Delta[None,:,None]*0.16*main.Delta[None,:,None]*np.abs(S_magreal)
+  nutreal = main.Delta[None,:,None]*main.Delta[None,:,None]*np.abs(S_magreal)
 
   tau11real = -2.*nutreal*S11real
   tau22real = -2.*nutreal*S22real
