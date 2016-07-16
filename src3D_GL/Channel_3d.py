@@ -29,6 +29,10 @@ if 'tau0' in globals():                      #|
   pass                                       #|
 else:                                        #|
   tau0 = 0.1                                 #|
+if 'Cs' in globals():
+  pass
+else:
+  Cs = 0.16
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -40,7 +44,7 @@ if not os.path.exists('3DSolution'):
 #=====================================================================
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type)
 grid = gridclass(N1,N2,N3,x,y,z,kc)
-main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0)
+main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs)
 #====================================================================
 
 main.iteration = 0
