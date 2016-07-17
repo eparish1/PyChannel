@@ -21,15 +21,14 @@ def pad(uhat,arrange):
   return uhat_pad
 
 
-def separateModes(uhat_pad,arrange):
+def separateModes(uhat_pad,dealias_2x):
   N1 = np.shape(uhat_pad)[0]/2
   N2 = np.shape(uhat_pad)[1] 
   N3 = (np.shape(uhat_pad)[2] + 1)/2 
   u_p = np.zeros((2*N1,N2,2*N3-1),dtype = 'complex')
   u_q = np.zeros((2*N1,N2,2*N3-1),dtype = 'complex')
   # the modes in q should include the oddball
-  u_p[0:N1/2   , : , 0:-N3] = uhat_pad[0:N1/2   , : ,0:-N3]
-  u_p[-N1/2+1::, : , 0:-N3] = uhat_pad[-N1/2+1::, : ,0:-N3]
+  u_p[:,:,:] = dealias_2x*uhat_pad
   u_q = uhat_pad - u_p
   return u_p,u_q
 
