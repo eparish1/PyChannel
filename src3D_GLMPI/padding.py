@@ -29,6 +29,12 @@ def separateModes(uhat_pad,dealias_2x):
   u_q = np.zeros((2*N1,N2,2*N3-1),dtype = 'complex')
   # the modes in q should include the oddball
   u_p[:,:,:] = dealias_2x*uhat_pad
+#  u_q = uhat_pad - u_p
+  # the modes in q should include the oddball
+  #u_p[0:N1/2   , : , 0:-N3] = uhat_pad[0:N1/2   , : ,0:-N3]
+  #u_p[-N1/2+1::, : , 0:-N3] = uhat_pad[-N1/2+1::, : ,0:-N3]
   u_q = uhat_pad - u_p
+
+
   return u_p,u_q
 

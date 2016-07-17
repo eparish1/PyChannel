@@ -110,9 +110,9 @@ def getRHS_vort_FM1(main,grid,myFFT):
 
 
   vsqrhat = 0.5*( uuhat + vvhat + wwhat)
-  PLu = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP  ### mean pressure gradient only
-  PLv = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )
-  PLw = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )
+  PLu = myFFT.dealias_y( -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP  ) ### mean pressure gradient only
+  PLv = myFFT.dealias_y( -( uom3_hat -wom1_hat + diff_y(vsqrhat)    ) )
+  PLw = myFFT.dealias_y( -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat ) )
  
 
   ## Now compute stuff for MZ!
@@ -241,7 +241,7 @@ def getRHS_vort_Smag(main,grid,myFFT):
   S_magreal = np.sqrt( 2.*(S11real*S11real + S22real*S22real + S33real*S33real + \
             2.*S12real*S12real + 2.*S13real*S13real + 2.*S23real*S23real ) )
   nutreal = main.Delta[None,:,None]*main.Delta[None,:,None]*np.abs(S_magreal)
-
+  #nutreal = np.abs(S_magreal)
   tau11real = -2.*nutreal*S11real
   tau22real = -2.*nutreal*S22real
   tau33real = -2.*nutreal*S33real

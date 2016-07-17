@@ -79,8 +79,8 @@ class variables:
       dz = grid.z[0,0,1] - grid.z[0,0,0]
       ydummy = np.cos( np.pi*np.linspace(0,grid.N2-1,grid.N2) /(grid.N2-1) )
       Delta[1:-1] =(  abs(dx *0.5*( ydummy[2::] - ydummy[0:-2] )*dz ) )**(1./3.)
-      Delta[0] = self.Delta[1]
-      Delta[-1] = self.Delta[-2]
+      Delta[0] = Delta[1]
+      Delta[-1] = Delta[-2]
       ## add wall damping
       wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
       Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) * self.Cs
@@ -128,7 +128,7 @@ class gridclass:
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
           self.dealias_2x[i,:,:] = 0.  
       self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+      self.dealias_2x[:, : , int(self.N3/4):: ] = 0. 
 
 
 class FFTclass:
@@ -183,7 +183,7 @@ class FFTclass:
 
     def dealias_y(fhat):
       N1,N2,N3 = np.shape(fhat)
-      cutoff = int( (N2+1.)/3. *2. )
+      cutoff = int( (N2)/3. *2. )
       fhat[:,cutoff::,:] = 0.
       return fhat
 
