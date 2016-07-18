@@ -1,9 +1,12 @@
 from pylab import *
+import sys
+sys.path.append('../')
 import numpy
 import scipy
 import scipy.fftpack
 import time
-from fftclass import *
+from Classes import FFTclass
+#from fftclass import *
 
 
 #### Testing for using the FFT that is halved in the z direction due to conjugate symmetry
@@ -49,7 +52,8 @@ N1 = 2**7
 N2 = 65
 N3 = 2**6
 
-myFFT = FFTclass(N1,N2,N3,1)
+#myFFT = FFTclass(N1,N2,N3,1)
+myFFT = FFTclass(N1,N2,N3,1,'scipy')
 L1 = 4.*np.pi
 L3 = 2.*np.pi
 

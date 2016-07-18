@@ -216,9 +216,6 @@ def getRHS_vort_Smag(main,grid,myFFT):
   uom2_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(uom2_pad),1)  )
   vom1_hat = myFFT.dealias( unpad(myFFT.myfft3D_pad(vom1_pad),1)  )
 
-
-
-
   ## Smagorinsky
   S11hat = 1j*grid.k1*main.uhat
   S22hat = diff_y(main.vhat)
