@@ -87,6 +87,34 @@ class variables:
       sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
       self.Delta[:] = Delta[sy]
 
+    if (turb_model == 'Dynamic Smagorinsky'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with Dynamic Smagorinsky Model \n')
+        sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.getRHS = getRHS_vort_DSmag
+      Delta = np.zeros(grid.N2)
+      self.Delta = np.zeros(grid.Npy)
+      ## filter width is inhomogeneous with delta = dx*dy*dz^{1/3}
+      # grid is homogeneous in x and z
+      dx = grid.x[1,0,0] - grid.x[0,0,0]
+      dz = grid.z[0,0,1] - grid.z[0,0,0]
+      ydummy = np.cos( np.pi*np.linspace(0,grid.N2-1,grid.N2) /(grid.N2-1) )
+      Delta[1:-1] =(  abs(dx *0.5*( ydummy[2::] - ydummy[0:-2] )*dz ) )**(1./3.)
+      Delta[0] = self.Delta[1]
+      Delta[-1] = self.Delta[-2]
+      ## add wall damping
+      wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
+      Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) 
+      sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
+      self.Delta[:] = Delta[sy]
+
+
 class gridclass:
   def __init__(self,N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model):
     self.Npx = int(float(N1 / num_processes))
@@ -115,10 +143,12 @@ class gridclass:
     self.dealias[:,   int( (self.N2)/3. *2. )::,:] = 0.
     self.dealias[:,:, int( (self.N3/2)*2./3. ):: ] = 0. 
 
-    if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):
+    #============== Extra Stuff For DNS ========================
+    if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):  
       self.kcx = self.N1/3. * 2.*np.pi/L1
       self.kcz = self.N3/3. * 2.*np.pi/L3
 
+    #============== Extra Stuff for FM1 ========================
     if (turb_model == 'FM1'):
       self.kcx = self.N1/4. * 2.*np.pi/L1
       self.kcz = self.N3/4. * 2.*np.pi/L3
@@ -129,7 +159,27 @@ class gridclass:
           self.dealias_2x[i,:,:] = 0.  
       self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
       self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+    #============== Extra stuff for DSmag =====================
+    if (turb_model == 'Dynamic Smagorinsky'):
+      self.DSmag_Filter_x = np.ones(self.Npx)
+      self.DSmag_Filter_y = np.ones(self.N2)
+      self.DSmag_Filter_z = np.ones(self.N3/2+1)
+      self.kcx = self.N1/3. * 2.*np.pi/L1
+      self.kcz = self.N3/3. * 2.*np.pi/L3
+      for i in range(0,self.Npx):
+        if (abs(self.k1[i,0,0]) >= (self.N1/2)/3.*2.*np.pi/L1):  ## apply cutoff at twice the filter width of what's resolved after aliasing 
+          self.DSmag_Filter_x[i] = 0.                            ## (e.g. N1=24 -> after aliasing N1=16, resolve to kc=8, then filter to kc = 4
+      self.DSmag_Filter_y[int(self.N2/3)::] = 0.               ## Do the same for chebyshev nodes. We don't need the divide by two
+                                                                 ## (e.g. N2=24 -> after aliasing N2=16, then cutoff 8:24
+      if (self.N3 == 2):
+        pass
+      else:                                                  
+        self.DSmag_Filter_z[int( (self.N3/2)/3. )::] = 0.         ## the same for z as in x. 
 
+      def DSmag_Filter(uhat):
+        uhat[:,:,:] = self.DSmag_Filter_x[:,None,None]*self.DSmag_Filter_y[None,:,None]*self.DSmag_Filter_z[None,None,:]*uhat
+        return uhat 
+      self.DSmag_Filter = DSmag_Filter
 
 class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
