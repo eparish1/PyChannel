@@ -636,6 +636,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
         LHSMAT[3::4,1::4] = grid.A1[0:-1,:]                        ##  dv/dy
         np.fill_diagonal( LHSMAT[3::4,2::4] , 1j*grid.k3[i,0,k] )  ##  dw/dz
         ## Finally setup boundary condtions
+        RHS[-7::] = 0.
         LHSMAT[-7,:] = 0.
         LHSMAT[-6,:] = 0.
         LHSMAT[-5,:] = 0.
