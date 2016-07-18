@@ -460,7 +460,6 @@ def getRHS_vort_DSmag(main,grid,myFFT):
   den = Mreal[:,:,:,0]*Mreal[:,:,:,0]  + Mreal[:,:,:,1]*Mreal[:,:,:,1] + Mreal[:,:,:,2]*Mreal[:,:,:,2] + \
          Mreal[:,:,:,3]*Mreal[:,:,:,3]  + Mreal[:,:,:,4]*Mreal[:,:,:,4] + Mreal[:,:,:,5]*Mreal[:,:,:,5]
   Cs_sqr = np.mean(np.mean(num,axis=2),axis=0)/(np.mean(np.mean(den,axis=2),axis=0) + 1.e-50)
-  print(Cs_sqr)
 
   nutreal = Cs_sqr[None,:,None]*main.Delta[None,:,None]*main.Delta[None,:,None]*np.abs(S_magreal)
 
