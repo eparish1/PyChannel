@@ -233,7 +233,7 @@ class FFTclass:
 
     def dealias_y(fhat):
       N1,N2,N3 = np.shape(fhat)
-      cutoff = int( (N2+1.)/3. *2. )
+      cutoff = int( (N2)/3. *2. )
       fhat[:,cutoff::,:] = 0.
       return fhat
 
