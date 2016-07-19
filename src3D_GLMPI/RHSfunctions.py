@@ -116,9 +116,9 @@ def getRHS_vort_FM1(main,grid,myFFT):
  
 
   ## Now compute stuff for MZ!
-  PLu_p, PLu_q = separateModes(PLu,1)
-  PLv_p, PLv_q = separateModes(PLv,1)
-  PLw_p, PLw_q = separateModes(PLw,1)
+  PLu_p, PLu_q = separateModes(PLu,grid.dealias_2x)
+  PLv_p, PLv_q = separateModes(PLv,grid.dealias_2x)
+  PLw_p, PLw_q = separateModes(PLw,grid.dealias_2x)
 
   PLu_qreal = myFFT.myifft3D(PLu_q)
   PLv_qreal = myFFT.myifft3D(PLv_q)
@@ -138,7 +138,6 @@ def getRHS_vort_FM1(main,grid,myFFT):
 
   main.PLQLu =  -1j*grid.k1*up_PLuq - diff_y(vp_PLuq) - 1j*grid.k3*wp_PLuq - \
           1j*grid.k1*up_PLuq - diff_y(up_PLvq) - 1j*grid.k3*up_PLwq
-
   main.PLQLv =  -1j*grid.k1*up_PLvq - diff_y(vp_PLvq) - 1j*grid.k3*wp_PLvq - \
           1j*grid.k1*vp_PLuq - diff_y(vp_PLvq) - 1j*grid.k3*vp_PLwq
 
@@ -152,7 +151,7 @@ def getRHS_vort_FM1(main,grid,myFFT):
   main.RHS_explicit[4] = 2.*main.PLQLv
   main.RHS_explicit[5] = 2.*main.PLQLw
 
-
+  
 
   uhat_xx = -grid.k1**2*main.uhat
   uhat_yy = diff_y2(main.uhat)
