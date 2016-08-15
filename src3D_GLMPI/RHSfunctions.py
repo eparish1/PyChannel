@@ -683,7 +683,6 @@ def advance_AdamsCrank(main,grid,myFFT):
   I2 = np.eye(grid.N2*2/3)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
-  print(np.linalg.norm(np.sum(grid.dealias*main.uhat,axis=1) ) )
   if (main.turb_model == 'FM1'):
     main.w0_u[:,:,:,0] =  (main.w0_u[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[3] - \
                           main.RHS_explicit_old[3]) + main.dt/2.*main.RHS_implicit[3] )\
