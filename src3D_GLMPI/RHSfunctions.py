@@ -43,7 +43,8 @@ def checkDivergence(main,grid):
   uhat_x = 1j*grid.k1*main.uhat
   vhat_y = diff_y(main.vhat)
   what_z = 1j*grid.k3*main.what
-  div = (uhat_x[:,:,:] + vhat_y[:,:,:] + what_z[:,:,:])
+  div = np.zeros(np.shape(main.uhat) ,dtype='complex')
+  div[:,0:grid.N2/3*2-1,:] = (uhat_x[:,0:grid.N2/3*2-1,:] + vhat_y[:,0:grid.N2/3*2-1,:] + what_z[:,0:grid.N2/3*2-1,:])
   div[:,-1,:] = 0.
   return div
 
@@ -110,9 +111,9 @@ def getRHS_vort_FM1(main,grid,myFFT):
 
 
   vsqrhat = 0.5*( uuhat + vvhat + wwhat)
-  PLu = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP  ### mean pressure gradient only
-  PLv = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )
-  PLw = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )
+  PLu = myFFT.dealias_y(  -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP ) ### mean pressure gradient only
+  PLv = myFFT.dealias_y( -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )             )
+  PLw = myFFT.dealias_y( -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )             )
  
 
   ## Now compute stuff for MZ!
@@ -577,40 +578,41 @@ def getRHS_vort(main,grid,myFFT):
 
 
 def lineSolve(main,grid,myFFT,i,I,I2):
-  altarray = (-np.ones(grid.N2))**(np.linspace(0,grid.N2-1,grid.N2))
+  N2 = grid.N2
+  altarray = (-np.ones(grid.N2*2/3))**(np.linspace(0,(grid.N2*2/3)-1,grid.N2*2/3))
   for k in range(0,grid.N3/2+1):
     if (grid.k1[i,0,k] == 0 and grid.k3[i,0,k] == 0):
       ### By continuity vhat = 0, don't need to solve for it.
       ### also by definition, p is the fixed pressure gradient, don't need to solve for it. 
       ### Just need to find u and w
-      F = np.zeros((grid.N2,grid.N2),dtype='complex')
+      F = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
       F[:,:] =  -main.nu*( grid.A2[:,:]  )
-      RHSu = np.zeros((grid.N2),dtype='complex')
-      RHSu[:] = main.uhat[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[0,i,:,k] - main.RHS_explicit_old[0,i,:,k]) + \
-                main.dt/2.*( main.RHS_implicit[0,i,:,k] )
-      RHSw = np.zeros((grid.N2),dtype='complex')
-      RHSw[:] = main.what[i,:,k] + main.dt/2.*(3.*main.RHS_explicit[2,i,:,k] - main.RHS_explicit_old[2,i,:,k]) + \
-                main.dt/2.*( main.RHS_implicit[2,i,:,k] )
+      RHSu = np.zeros((grid.N2*2/3),dtype='complex')
+      RHSu[:] = main.uhat[i,0:N2/3*2,k] + main.dt/2.*(3.*main.RHS_explicit[0,i,0:N2/3*2,k] - main.RHS_explicit_old[0,i,0:N2/3*2,k]) + \
+                main.dt/2.*( main.RHS_implicit[0,i,0:N2/3*2,k] )
+      RHSw = np.zeros((grid.N2*2/3),dtype='complex')
+      RHSw[:] = main.what[i,0:N2/3*2,k] + main.dt/2.*(3.*main.RHS_explicit[2,i,0:N2/3*2,k] - main.RHS_explicit_old[2,i,0:N2/3*2,k]) + \
+                main.dt/2.*( main.RHS_implicit[2,i,0:N2/3*2,k] )
 
       ## Now create entire LHS matrix
-      LHSMAT = np.zeros((grid.N2,grid.N2),dtype='complex')
+      LHSMAT = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
       ## insert in the linear contribution for the momentum equations
-      LHSMAT[:,:] = np.eye(grid.N2) + 0.5*main.dt*F[:,:]
+      LHSMAT[:,:] = np.eye(grid.N2*2/3) + 0.5*main.dt*F[:,:]
       ## Finally setup boundary condtions
-      LHSMAT[-2,:] = 1.
-      LHSMAT[-1,:] = altarray
+      LHSMAT[-2,:] = 1.#*grid.dealias[0,:,0]
+      LHSMAT[-1,:] = altarray#*grid.dealias[0,:,0]
       RHSu[-2::] = 0.
       RHSw[-2::] = 0.
-      main.uhat[i,:,k] = np.linalg.solve(LHSMAT,RHSu)
-      main.what[i,:,k] = np.linalg.solve(LHSMAT,RHSw)
-      main.vhat[i,:,k] = 0. 
+      main.uhat[i,0:N2/3*2,k] = np.linalg.solve(LHSMAT,RHSu)
+      main.what[i,0:N2/3*2,k] = np.linalg.solve(LHSMAT,RHSw)
+      main.vhat[i,0:N2/3*2,k] = 0. 
     else:
       if (abs(grid.k3[i,0,k]) <= grid.kcz): # don't bother solving for dealiased wave numbers
         t0 = time.time()
         ## SOLUTION VECTOR LOOKS LIKE
         #[ u0,v0,w0,ph0,u1,v1,w1,ph1,...,un,vn,wn]
         ## Form linear matrix for Crank Nicolson terms
-        F = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
+        F = np.zeros(( (N2/3*2)*4-1,(N2/3*2)*4-1),dtype='complex')
         #F = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
         F[0::4,0::4] = -main.nu*( grid.A2[:,:] - grid.ksqr[i,0,k]*I2[:,:] )###Viscous terms
         F[1::4,1::4] = F[0::4,0::4]  ### put into v eqn as well
@@ -620,12 +622,12 @@ def lineSolve(main,grid,myFFT,i,I,I2):
         np.fill_diagonal( F[2::4,3::4],1j*grid.k3[i,0,k] )  ## w eqn
    
         ## Now create RHS solution vector
-        RHS = np.zeros((grid.N2*4-1),dtype='complex')
-        RHS[0::4] = main.uhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[0,i,:,k] - main.RHS_explicit_old[0,i,:,k]) + main.dt/2.*main.RHS_implicit[0,i,:,k]
-        RHS[1::4] = main.vhat[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[1,i,:,k] - main.RHS_explicit_old[1,i,:,k]) + main.dt/2.*main.RHS_implicit[1,i,:,k]
-        RHS[2::4] = main.what[i,:,k] +  main.dt/2.*(3.*main.RHS_explicit[2,i,:,k] - main.RHS_explicit_old[2,i,:,k]) + main.dt/2.*main.RHS_implicit[2,i,:,k]
+        RHS = np.zeros(( (N2/3*2)*4-1),dtype='complex')
+        RHS[0::4] = main.uhat[i,0:N2/3*2,k] +  main.dt/2.*(3.*main.RHS_explicit[0,i,0:N2/3*2,k] - main.RHS_explicit_old[0,i,0:N2/3*2,k]) + main.dt/2.*main.RHS_implicit[0,i,0:N2/3*2,k]
+        RHS[1::4] = main.vhat[i,0:N2/3*2,k] +  main.dt/2.*(3.*main.RHS_explicit[1,i,0:N2/3*2,k] - main.RHS_explicit_old[1,i,0:N2/3*2,k]) + main.dt/2.*main.RHS_implicit[1,i,0:N2/3*2,k]
+        RHS[2::4] = main.what[i,0:N2/3*2,k] +  main.dt/2.*(3.*main.RHS_explicit[2,i,0:N2/3*2,k] - main.RHS_explicit_old[2,i,0:N2/3*2,k]) + main.dt/2.*main.RHS_implicit[2,i,0:N2/3*2,k]
   
-        LHSMAT = np.zeros((grid.N2*4-1,grid.N2*4-1),dtype='complex')
+        LHSMAT = np.zeros(( (N2/3*2)*4-1,(N2/3*2)*4-1),dtype='complex')
         #LHSMAT = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
         ## insert in the linear contribution for the momentum equations
         LHSMAT[:,:] = I + 0.5*main.dt*F[:,:]
@@ -643,24 +645,24 @@ def lineSolve(main,grid,myFFT,i,I,I2):
         LHSMAT[-2,:] = 0.
         LHSMAT[-1,:] = 0.
     
-        LHSMAT[-7,0::4] = 1.
-        LHSMAT[-6,1::4] = 1
-        LHSMAT[-5,2::4] = 1
-  
-        LHSMAT[-3,0::4] = altarray[:]
-        LHSMAT[-2,1::4] = altarray[:]
-        LHSMAT[-1,2::4] = altarray[:]
+        LHSMAT[-7,0::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,0,0]
+        LHSMAT[-6,1::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,:,0]
+        LHSMAT[-5,2::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,:,0]
+        LHSMAT[-3,0::4] = altarray[0:N2/3*2] #* grid.dealias[0,:,0]
+        LHSMAT[-2,1::4] = altarray[0:N2/3*2] #* grid.dealias[0,:,0]
+        LHSMAT[-1,2::4] = altarray[0:N2/3*2] #* grid.dealias[0,:,0]
+
   
         t1 = time.time() 
-    #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
-    #    U = solver(RHS)
+        solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
+        U = solver(RHS)
     #    U = np.linalg.solve(LHSMAT,RHS)
-        U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
+    #    U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
     #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
-        main.uhat[i,:,k] = U[0::4]
-        main.vhat[i,:,k] = U[1::4]
-        main.what[i,:,k] = U[2::4]
-        main.phat[i,0:-1,k] = U[3::4]
+        main.uhat[i,0:N2/3*2,k] = U[0::4]#*grid.dealias[0,:,0]
+        main.vhat[i,0:N2/3*2,k] = U[1::4]#*grid.dealias[0,:,0]
+        main.what[i,0:N2/3*2,k] = U[2::4]#*grid.dealias[0,:,0]
+        main.phat[i,0:N2/3*2-1,k] = U[3::4]#*grid.dealias[0,:,0]
         main.LHSMAT = LHSMAT
         main.RHS = RHS
   
@@ -677,10 +679,11 @@ def advance_AdamsCrank(main,grid,myFFT):
   main.RHS_explicit_old[:,:,:] = main.RHS_explicit[:,:,:]
   t1 = time.time() 
   main.getRHS(main,grid,myFFT)
-  I = np.eye(grid.N2*4-1)
-  I2 = np.eye(grid.N2)
+  I = np.eye( (grid.N2/3*2)*4-1)
+  I2 = np.eye(grid.N2*2/3)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
+  print(np.linalg.norm(np.sum(grid.dealias*main.uhat,axis=1) ) )
   if (main.turb_model == 'FM1'):
     main.w0_u[:,:,:,0] =  (main.w0_u[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[3] - \
                           main.RHS_explicit_old[3]) + main.dt/2.*main.RHS_implicit[3] )\

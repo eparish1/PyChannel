@@ -130,9 +130,9 @@ class gridclass:
     k3 = np.fft.rfftfreq(N3,1./N3)*2.*np.pi/L3
     self.k1,k2,self.k3 = np.meshgrid(k1[mpi_rank*self.Npx:(mpi_rank+1)*self.Npx],k2,k3,indexing='ij')
     self.ksqr = self.k1*self.k1 + self.k3*self.k3 
-    self.A1  = getA1Mat(N2)
-    self.A1p = getA1Mat(N2-1)
-    self.A2  = getA2Mat(N2)
+    self.A1  = getA1Mat(N2*2/3)
+    self.A1p = getA1Mat(N2*2/3-1)
+    self.A2  = getA2Mat(N2*2/3)
     self.xG = allGather_physical(self.x,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.yG = allGather_physical(self.y,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.zG = allGather_physical(self.z,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
@@ -147,12 +147,10 @@ class gridclass:
     if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):  
       self.kcx = self.N1/3. * 2.*np.pi/L1
       self.kcz = self.N3/3. * 2.*np.pi/L3
-
     #============== Extra Stuff for FM1 ========================
     if (turb_model == 'FM1'):
       self.kcx = self.N1/4. * 2.*np.pi/L1
       self.kcz = self.N3/4. * 2.*np.pi/L3
-
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
