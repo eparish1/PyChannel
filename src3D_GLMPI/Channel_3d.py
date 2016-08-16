@@ -32,6 +32,11 @@ if 'Cs' in globals():                        #|
   pass                                       #|
 else:                                        #|
   Cs = 0.16                                  #|
+if 'iteration_start' in globals():           #|
+  pass                                       #|
+else:                                        #|
+  iteration_start = 0                        #|
+
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -46,7 +51,7 @@ grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model)
 main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank)
 #====================================================================
 
-main.iteration = 0
+main.iteration = iteration_start
 main.save_freq = save_freq
 
 ### Main time integration loop

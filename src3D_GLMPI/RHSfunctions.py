@@ -654,10 +654,10 @@ def lineSolve(main,grid,myFFT,i,I,I2):
 
   
         t1 = time.time() 
-        solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
-        U = solver(RHS)
+    #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
+    #    U = solver(RHS)
     #    U = np.linalg.solve(LHSMAT,RHS)
-    #    U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
+        U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
     #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
         main.uhat[i,0:N2/3*2,k] = U[0::4]#*grid.dealias[0,:,0]
         main.vhat[i,0:N2/3*2,k] = U[1::4]#*grid.dealias[0,:,0]
