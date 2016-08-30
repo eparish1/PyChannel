@@ -88,7 +88,7 @@ while (main.t < main.et):
       wwGlobal = allGather_physical(ww,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
 
     if (mpi_rank == 0):
-      string = '3DSolution/PVsol' + str(main.iteration)
+      #string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
       if (main.turb_model == 'FM1'):
         np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal)
@@ -101,8 +101,8 @@ while (main.t < main.et):
   
       sys.stdout.flush()
       
-      gridToVTK(string, grid.xG,grid.yG,grid.zG, pointData = {"u" : np.real(uGlobal.transpose()) , \
-        "v" : np.real(vGlobal.transpose()) , "w" : np.real(wGlobal.transpose()) } ) #, \
+      #gridToVTK(string, grid.xG,grid.yG,grid.zG, pointData = {"u" : np.real(uGlobal.transpose()) , \
+      #  "v" : np.real(vGlobal.transpose()) , "w" : np.real(wGlobal.transpose()) } ) #, \
        #363       "p" : np.real(pdummy.transpose())} )
 
   #---------------------------------------------
