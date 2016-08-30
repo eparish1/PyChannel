@@ -57,7 +57,33 @@ class variables:
       self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.tau0 = tau0
       self.getRHS = getRHS_vort_FM1
-      
+
+    if (turb_model == 'stau'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with static tau model \n')
+        sys.stdout.write('tau0 = ' + str(tau0) + '\n')
+        sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.tau0 = tau0
+      self.getRHS = getRHS_vort_stau
+
+    if (turb_model == 'dtau'):
+      if (mpi_rank == 0):
+        sys.stdout.write('Running with dynamic tau model \n')
+        sys.stdout.flush()
+      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
+      self.getRHS = getRHS_vort_dtau
+     
     if (turb_model == 'Smagorinsky'):
       if (mpi_rank == 0):
         sys.stdout.write('Running with Smagorinsky Model \n')
@@ -157,6 +183,36 @@ class gridclass:
           self.dealias_2x[i,:,:] = 0.  
       self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
       self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+    #============== Extra Stuff for stau ========================
+    if (turb_model == 'stau'):
+      self.kcx = self.N1/4. * 2.*np.pi/L1
+      self.kcz = self.N3/4. * 2.*np.pi/L3
+      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
+      for i in range(0,self.Npx):
+        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
+          self.dealias_2x[i,:,:] = 0.  
+      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+    #============== Extra Stuff for dtau ========================
+    if (turb_model == 'dtau'):
+      self.kcx = self.N1/4. * 2.*np.pi/L1
+      self.kcz = self.N3/4. * 2.*np.pi/L3
+      self.test_kcx = self.kcx/2
+      self.test_kcz = self.kcz/2
+
+      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
+      for i in range(0,self.Npx):
+        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
+          self.dealias_2x[i,:,:] = 0.  
+      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+
+      self.test_filter = np.ones((self.Npx,N2,N3/2+1) )
+      for i in range(0,self.Npx):
+        if (abs(self.k1[i,0,0]) >= self.test_kcx):
+          self.test_filter[i,:,:] = 0.  
+      self.test_filter[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.test_filter[:,:, int( (self.N3/8) ):: ] = 0. 
     #============== Extra stuff for DSmag =====================
     if (turb_model == 'Dynamic Smagorinsky'):
       self.DSmag_Filter_x = np.ones(self.Npx)

@@ -36,7 +36,6 @@ if 'iteration_start' in globals():           #|
   pass                                       #|
 else:                                        #|
   iteration_start = 0                        #|
-
 #==============================================
 
 # Make Solution Directory if it does not exist
