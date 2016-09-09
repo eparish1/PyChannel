@@ -45,8 +45,10 @@ def checkDivergence(main,grid):
   vhat_y = diff_y(main.vhat)
   what_z = 1j*grid.k3*main.what
   div = np.zeros(np.shape(main.uhat) ,dtype='complex')
-  div[:,0:grid.N2/3*2-1,:] = (uhat_x[:,0:grid.N2/3*2-1,:] + vhat_y[:,0:grid.N2/3*2-1,:] + what_z[:,0:grid.N2/3*2-1,:])
+  div[:,0:grid.N2/3*2,:] = (uhat_x[:,0:grid.N2/3*2,:] + vhat_y[:,0:grid.N2/3*2,:] + what_z[:,0:grid.N2/3*2,:])
   div[:,-1,:] = 0.
+  #div[:,0:2,:] = 0.
+  #div[0,:,0] = 0.
   return div
 
 def diff_y(fhat):
@@ -109,6 +111,119 @@ def getRHS_vort(main,grid,myFFT):
   main.RHS_implicit[0] = main.nu*( -grid.ksqr*main.uhat + diff_y2(main.uhat) ) - 1j*grid.k1*main.phat
   main.RHS_implicit[1] = main.nu*( -grid.ksqr*main.vhat + diff_y2(main.vhat) ) - diff_y(main.phat)
   main.RHS_implicit[2] = main.nu*( -grid.ksqr*main.what + diff_y2(main.what) ) - 1j*grid.k3*main.phat
+
+
+
+def lineSolve2(main,grid,myFFT,i,I,I2):
+  N2 = grid.N2
+  ms = np.linspace(0,grid.N2*2/3-1,grid.N2*2/3)
+  cm = np.ones(grid.N2*2/3)
+  cm[0] = 2.
+  altarray = (-np.ones(grid.N2*2/3))**(np.linspace(0,(grid.N2*2/3)-1,grid.N2*2/3))
+  for k in range(0,grid.N3/2+1):
+    if (grid.k1[i,0,k] == 0 and grid.k3[i,0,k] == 0):
+      ### By continuity vhat = 0, don't need to solve for it.
+      ### also by definition, p is the fixed pressure gradient, don't need to solve for it. 
+      ### Just need to find u and w
+      RHS = np.zeros((grid.N2*2/3),dtype='complex')
+      RHSu = np.zeros((grid.N2*2/3),dtype='complex')
+      RHSu[:] = main.uhat[i,0:N2*2/3,k] + main.dt/2.*(3.*main.RHS_explicit[0,i,0:N2*2/3,k] - main.RHS_explicit_old[0,i,0:N2*2/3,k]) + \
+                main.dt/2.*( main.RHS_implicit[0,i,0:N2*2/3,k] )
+      RHSw = np.zeros((grid.N2*2/3),dtype='complex')
+      RHSw[:] = main.what[i,0:N2*2/3,k] + main.dt/2.*(3.*main.RHS_explicit[2,i,0:N2*2/3,k] - main.RHS_explicit_old[2,i,0:N2*2/3,k]) + \
+                main.dt/2.*( main.RHS_implicit[2,i,0:N2*2/3,k] )
+
+      ## Now create entire LHS matrix
+      LHSMAT = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
+      ## insert in the linear contribution for the momentum equations
+      LHSMAT[0,:] = 1.
+      LHSMAT[1,:] = altarray
+      fill_diagonal(LHSMAT[2::,2::],-main.nu*main.dt*ms[2::] -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) )
+      fill_diagonal(LHSMAT[2::,0:-2],cm[0:-2]/(2.*ms[2::] - 2.) )
+      fill_diagonal(LHSMAT[2::,4::],1./(2.*ms[2::]+2.) )
+      RHSu = np.append(RHSu,np.zeros(2))
+      RHSw = np.append(RHSw,np.zeros(2))
+
+      RHS[2::] = (cm[0:-2]*RHSu[0:-4]  - RHSu[2:-2]) / (2.*ms[2::] - 2.)  - (RHSu[2:-2] - RHSu[4::] )/(2.*ms[2::] + 2.)
+      main.uhat[i,0:N2*2/3,k] = np.linalg.solve(LHSMAT,RHS)
+      RHS[2::] = (cm[0:-2]*RHSw[0:-4]  - RHSw[2:-2]) / (2.*ms[2::] - 2.)  - (RHSw[2:-2] - RHSw[4::] )/(2.*ms[2::] + 2.)
+      main.what[i,0:N2*2/3,k] = np.linalg.solve(LHSMAT,RHS)
+      main.vhat[i,0:N2*2/3,k] = 0. 
+    else:
+      if (abs(grid.k3[i,0,k]) <= grid.kcz): # don't bother solving for dealiased wave numbers
+        t0 = time.time()
+        ## SOLUTION VECTOR LOOKS LIKE
+        #[ u0,v0,w0,ph0,u1,v1,w1,ph1,...,un,vn,wn]
+        ## Form linear matrix for Crank Nicolson terms
+        ## Now create RHS solution vector
+        RHS =  np.zeros((N2*2/3)*4-1,dtype='complex')
+        RHSu = np.zeros(N2*2/3,dtype='complex')
+        RHSv = np.zeros(N2*2/3,dtype='complex')
+        RHSw = np.zeros(N2*2/3,dtype='complex')
+
+        RHSu = main.uhat[i,0:N2*2/3,k] +  main.dt/2.*(3.*main.RHS_explicit[0,i,0:N2*2/3,k] - main.RHS_explicit_old[0,i,0:N2*2/3,k]) + main.dt/2.*main.RHS_implicit[0,i,0:N2*2/3,k]
+        RHSv = main.vhat[i,0:N2*2/3,k] +  main.dt/2.*(3.*main.RHS_explicit[1,i,0:N2*2/3,k] - main.RHS_explicit_old[1,i,0:N2*2/3,k]) + main.dt/2.*main.RHS_implicit[1,i,0:N2*2/3,k]
+        RHSw = main.what[i,0:N2*2/3,k] +  main.dt/2.*(3.*main.RHS_explicit[2,i,0:N2*2/3,k] - main.RHS_explicit_old[2,i,0:N2*2/3,k]) + main.dt/2.*main.RHS_implicit[2,i,0:N2*2/3,k]
+  
+        LHSMATu = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
+        LHSMATu[0,:] = 1.
+        LHSMATu[1,:] = altarray
+        fill_diagonal(LHSMATu[2::,2::],-main.nu*main.dt*ms[2::] \
+                                       -(1.+main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]*0.5)/(2.*ms[2::]-2.) \
+                                       -(1.+main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]*0.5)/(2.*ms[2::]+2.) )
+        fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]/2.) )
+        fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]/2.) )
+        LHSMATp = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
+        fill_diagonal(LHSMATp[2::,0:-2],main.dt*0.5*1j*cm[0:-2]/(2.*ms[2::]-2.) )
+        fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]+2.) - 1./(2.*ms[2::]+2.) ) )
+        fill_diagonal(LHSMATp[2::, 4::],main.dt*0.5*1j*1./(2.*ms[2::]+2.) )
+        LHSMATpv = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
+        fill_diagonal(LHSMATpv[2::,1::],main.dt*0.5)
+        fill_diagonal(LHSMATpv[2::, 3::],main.dt*0.5)
+     
+
+        LHSMAT = np.zeros(( (N2*2/3)*4-1,(N2*2/3)*4-1),dtype='complex')
+        LHSMAT[0::4,0::4] = LHSMATu
+        LHSMAT[1::4,1::4] = LHSMATu
+        LHSMAT[2::4,2::4] = LHSMATu
+        LHSMAT[0::4,3::4] = grid.k1[i,0,k]*LHSMATp
+        LHSMAT[1::4,3::4] = LHSMATpv
+        LHSMAT[2::4,3::4] = grid.k3[i,0,k]*LHSMATp
+        ##========== Continuity Equation ================
+        fill_diagonal(LHSMAT[3::4,0::4], 1j*grid.k1[i,0,k]*cm[0:-1] )
+        fill_diagonal(LHSMAT[3::4,8::4],-1j*grid.k1[i,0,k] )
+        fill_diagonal(LHSMAT[3::4,5::4], 2.*ms[1::] )
+        fill_diagonal(LHSMAT[3::4,2::4], 1j*grid.k3[i,0,k]*cm[0:-1])
+        fill_diagonal(LHSMAT[3::4,10::4],-1j*grid.k3[i,0,k])
+  
+        RHSu = np.append(RHSu,np.zeros(2))
+        RHSv = np.append(RHSv,np.zeros(2))
+        RHSw = np.append(RHSw,np.zeros(2))
+
+        RHS[3::4] = 0.
+        RHS[8::4] = (cm[0:-2]*RHSu[0:-4]  - RHSu[2:-2]) / (2.*ms[2::] - 2.)  - \
+                            (RHSu[2:-2] - RHSu[4::] )/(2.*ms[2::] + 2.)
+
+        RHS[9::4] = (cm[0:-2]*RHSv[0:-4]  - RHSv[2:-2]) / (2.*ms[2::] - 2.)  - \
+                            (RHSv[2:-2] - RHSv[4::] )/(2.*ms[2::] + 2.)
+
+        RHS[10::4] = (cm[0:-2]*RHSw[0:-4]  - RHSw[2:-2]) / (2.*ms[2::] - 2.)  - \
+                            (RHSw[2:-2] - RHSw[4::] )/(2.*ms[2::] + 2.)
+
+        t1 = time.time() 
+    #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
+    #    U = solver(RHS)
+    #    U = np.linalg.solve(LHSMAT,RHS)
+        U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
+    #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
+        main.uhat[i,0:N2*2/3,k] = U[0::4]#*grid.dealias[0,:,0]
+        main.vhat[i,0:N2*2/3,k] = U[1::4]#*grid.dealias[0,:,0]
+        main.what[i,0:N2*2/3,k] = U[2::4]#*grid.dealias[0,:,0]
+        main.phat[i,0:N2*2/3-1,k] = U[3::4]#*grid.dealias[0,:,0]
+        #print(1j*grid.k1[i,0,k]*main.uhat[i,N2*2/3-2,k] + main.vhat[i,N2*2/3-1,k]*2.*(N2*2/3-1) + 1j*grid.k3[i,0,k]*main.what[i,N2*2/3-2,k] ) 
+       # print(np.linalg.norm(dot(LHSMAT,U)[3::4] ) )
+       # main.LHSMAT = LHSMAT
+       # main.RHS = RHS
 
 
 
@@ -205,7 +320,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
 def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
   for i in range(0,grid.Npx):
     if (abs(grid.k1[i,0,0]) <= grid.kcx): #don't bother solving for dealiased wave numbers
-       lineSolve(main,grid,myFFT,i,I,I2)
+       lineSolve2(main,grid,myFFT,i,I,I2)
 
 
 
