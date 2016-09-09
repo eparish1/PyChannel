@@ -49,24 +49,48 @@ def checkDivergence(main,grid):
   div[:,-1,:] = 0.
   return div
 
+#def diff_y(fhat):
+#  N1,N2,N3 = np.shape(fhat) 
+#  fhat1 = np.zeros((N1,N2,N3),dtype='complex') 
+#  for n in range(0,N2-1):
+#    for p in range(n+1,N2,2):
+#      fhat1[:,n,:] += fhat[:,p,:]*2.*p
+#  fhat1[:,0,:] = fhat1[:,0,:]/2.
+#  return fhat1
+#
+#def diff_y2(uhat):
+#  N1,N2,N3 = np.shape(uhat)
+#  uhat2 = np.zeros((N1,N2,N3),dtype='complex')
+#  for n in range(0,N2-2):
+#    for p in range(n+2,N2,2):
+#      uhat2[:,n,:] += uhat[:,p,:]* p*(p**2 - n**2)
+#  uhat2[:,0,:] = uhat2[:,0,:]/2
+#  return uhat2
+
 def diff_y(fhat):
-  N1,N2,N3 = np.shape(fhat) 
-  fhat1 = np.zeros((N1,N2,N3),dtype='complex') 
-  for n in range(0,N2-1):
-    for p in range(n+1,N2,2):
-      fhat1[:,n,:] += fhat[:,p,:]*2.*p
+  N1,N2,N3 = np.shape(fhat)
+  fhat1 = np.zeros((N1,N2,N3),dtype='complex')
+  #fhat1[:,N2-1,:] = 0  k = N2-1
+  fhat1[:,-2,:] = 2.*(N2-1)*fhat[:,-1,:] #k = N2-2
+  for k in range(N2-3,-1,-1):
+    fhat1[:,k,:] = fhat1[:,k+2,:] + 2.*(k+1)*fhat[:,k+1,:]
   fhat1[:,0,:] = fhat1[:,0,:]/2.
   return fhat1
 
-def diff_y2(uhat):
-  N1,N2,N3 = np.shape(uhat)
-  uhat2 = np.zeros((N1,N2,N3),dtype='complex')
-  for n in range(0,N2-2):
-    for p in range(n+2,N2,2):
-      uhat2[:,n,:] += uhat[:,p,:]* p*(p**2 - n**2)
-  uhat2[:,0,:] = uhat2[:,0,:]/2
-  return uhat2
-
+def diff_y2(fhat):
+  N1,N2,N3 = np.shape(fhat)
+  fhat1 = np.zeros((N1,N2,N3),dtype='complex')
+  fhat2 = np.zeros((N1,N2,N3),dtype='complex')
+  #fhat1[:,N2-1,:] = 0  k = N2-1
+  fhat1[:,-2,:] = 2.*(N2-1)*fhat[:,-1,:] #k = N2-2
+  for k in range(N2-3,-1,-1):
+    fhat1[:,k,:] = fhat1[:,k+2,:] + 2.*(k+1)*fhat[:,k+1,:]
+  fhat1[:,0,:] = fhat1[:,0,:]/2.
+  fhat2[:,-3,:] = 2.*(N2-2)*fhat1[:,-2,:] #k = N2-3
+  for k in range(N2-4,-1,-1):
+    fhat2[:,k,:] = fhat2[:,k+2,:] + 2.*(k+1)*fhat1[:,k+1,:]
+  fhat2[:,0,:] = fhat2[:,0,:]/2.
+  return fhat2
 
 def getRHS_vort_dtau(main,grid,myFFT):
   main.uhat = grid.dealias_2x*main.uhat

@@ -12,9 +12,13 @@ class variables:
     self.nu = nu
     self.Re_tau = Re_tau
     self.pbar_x = -Re_tau**2*nu**2
-    self.dP = myFFT.myfft3D(self.pbar_x*np.ones(np.shape(u)))
+    self.dP = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    myFFT.myfft3D(self.pbar_x*np.ones(np.shape(u)),self.dP)
 
     self.u = np.zeros((grid.N1,grid.Npy,grid.N3))
+    self.omega = np.zeros((3,grid.N1,grid.Npy,grid.N3))
+    self.omegahat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+
     self.u[:,:,:] = u[:,:,:]
     del u
     self.v = np.zeros((grid.N1,grid.Npy,grid.N3))
@@ -24,14 +28,17 @@ class variables:
     self.w[:,:,:] = w[:,:,:]
     del w
 
+    self.NL =    np.zeros((4,grid.N1,grid.Npy,grid.N3) )
+    self.NLhat = np.zeros((4,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+
     self.uhat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-    self.uhat[:,:,:] = myFFT.myfft3D(self.u)
+    myFFT.myfft3D(self.u,self.uhat)
 
     self.vhat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-    self.vhat[:,:,:] = myFFT.myfft3D(self.v)
+    myFFT.myfft3D(self.v,self.vhat)
 
     self.what = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-    self.what[:,:,:] = myFFT.myfft3D(self.w)
+    myFFT.myfft3D(self.w,self.what)
 
     self.phat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
 
@@ -44,102 +51,6 @@ class variables:
       self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
       self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
       self.getRHS = getRHS_vort
-
-    if (turb_model == 'FM1'):
-      if (mpi_rank == 0):
-        sys.stdout.write('Running with FM1 Model \n')
-        sys.stdout.flush()
-      self.RHS_explicit =     np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_explicit_old = np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_implicit =     np.zeros((6,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.tau0 = tau0
-      self.getRHS = getRHS_vort_FM1
-
-    if (turb_model == 'stau'):
-      if (mpi_rank == 0):
-        sys.stdout.write('Running with static tau model \n')
-        sys.stdout.write('tau0 = ' + str(tau0) + '\n')
-        sys.stdout.flush()
-      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.tau0 = tau0
-      self.getRHS = getRHS_vort_stau
-
-    if (turb_model == 'dtau'):
-      if (mpi_rank == 0):
-        sys.stdout.write('Running with dynamic tau model \n')
-        sys.stdout.flush()
-      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.getRHS = getRHS_vort_dtau
-     
-    if (turb_model == 'Smagorinsky'):
-      if (mpi_rank == 0):
-        sys.stdout.write('Running with Smagorinsky Model \n')
-        sys.stdout.write('Cs = ' + str(Cs) + ' \n')
-        sys.stdout.flush()
-      self.Cs = Cs
-      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.getRHS = getRHS_vort_Smag
-      Delta = np.zeros(grid.N2)
-      self.Delta = np.zeros(grid.Npy)
-      ## filter width is inhomogeneous with delta = dx*dy*dz^{1/3}
-      # grid is homogeneous in x and z
-      dx = grid.x[1,0,0] - grid.x[0,0,0]
-      dz = grid.z[0,0,1] - grid.z[0,0,0]
-      ydummy = np.cos( np.pi*np.linspace(0,grid.N2-1,grid.N2) /(grid.N2-1) )
-      Delta[1:-1] =(  abs(dx *0.5*( ydummy[2::] - ydummy[0:-2] )*dz ) )**(1./3.)
-      Delta[0] = self.Delta[1]
-      Delta[-1] = self.Delta[-2]
-      ## add wall damping
-      wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
-      Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) * self.Cs
-      sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
-      self.Delta[:] = Delta[sy]
-
-    if (turb_model == 'Dynamic Smagorinsky'):
-      if (mpi_rank == 0):
-        sys.stdout.write('Running with Dynamic Smagorinsky Model \n')
-        sys.stdout.flush()
-      self.RHS_explicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_explicit_old = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
-      self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.getRHS = getRHS_vort_DSmag
-      Delta = np.zeros(grid.N2)
-      self.Delta = np.zeros(grid.Npy)
-      ## filter width is inhomogeneous with delta = dx*dy*dz^{1/3}
-      # grid is homogeneous in x and z
-      dx = grid.x[1,0,0] - grid.x[0,0,0]
-      dz = grid.z[0,0,1] - grid.z[0,0,0]
-      ydummy = np.cos( np.pi*np.linspace(0,grid.N2-1,grid.N2) /(grid.N2-1) )
-      Delta[1:-1] =(  abs(dx *0.5*( ydummy[2::] - ydummy[0:-2] )*dz ) )**(1./3.)
-      Delta[0] = self.Delta[1]
-      Delta[-1] = self.Delta[-2]
-      ## add wall damping
-      wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
-      Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) 
-      sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
-      self.Delta[:] = Delta[sy]
-
 
 class gridclass:
   def __init__(self,N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model):
@@ -162,6 +73,7 @@ class gridclass:
     self.xG = allGather_physical(self.x,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.yG = allGather_physical(self.y,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.zG = allGather_physical(self.z,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
+
     self.dealias = np.ones((self.Npx,N2,N3/2+1) )
     for i in range(0,self.Npx):
       if (abs(self.k1[i,0,0]) >= (self.N1/2)*2./3.*2.*np.pi/L1):
@@ -170,75 +82,17 @@ class gridclass:
     self.dealias[:,:, int( (self.N3/2)*2./3. ):: ] = 0. 
 
     #============== Extra Stuff For DNS ========================
-    if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):  
+    if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):
       self.kcx = self.N1/3. * 2.*np.pi/L1
       self.kcz = self.N3/3. * 2.*np.pi/L3
-    #============== Extra Stuff for FM1 ========================
-    if (turb_model == 'FM1'):
-      self.kcx = self.N1/4. * 2.*np.pi/L1
-      self.kcz = self.N3/4. * 2.*np.pi/L3
-      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
-      for i in range(0,self.Npx):
-        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
-          self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
-    #============== Extra Stuff for stau ========================
-    if (turb_model == 'stau'):
-      self.kcx = self.N1/4. * 2.*np.pi/L1
-      self.kcz = self.N3/4. * 2.*np.pi/L3
-      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
-      for i in range(0,self.Npx):
-        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
-          self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
-    #============== Extra Stuff for dtau ========================
-    if (turb_model == 'dtau'):
-      self.kcx = self.N1/4. * 2.*np.pi/L1
-      self.kcz = self.N3/4. * 2.*np.pi/L3
-      self.test_kcx = self.kcx/2
-      self.test_kcz = self.kcz/2
-
-      self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
-      for i in range(0,self.Npx):
-        if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
-          self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
-
-      self.test_filter = np.ones((self.Npx,N2,N3/2+1) )
-      for i in range(0,self.Npx):
-        if (abs(self.k1[i,0,0]) >= self.test_kcx):
-          self.test_filter[i,:,:] = 0.  
-      self.test_filter[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.test_filter[:,:, int( (self.N3/8) ):: ] = 0. 
-    #============== Extra stuff for DSmag =====================
-    if (turb_model == 'Dynamic Smagorinsky'):
-      self.DSmag_Filter_x = np.ones(self.Npx)
-      self.DSmag_Filter_y = np.ones(self.N2)
-      self.DSmag_Filter_z = np.ones(self.N3/2+1)
-      self.kcx = self.N1/3. * 2.*np.pi/L1
-      self.kcz = self.N3/3. * 2.*np.pi/L3
-      for i in range(0,self.Npx):
-        if (abs(self.k1[i,0,0]) >= (self.N1/2)/3.*2.*np.pi/L1):  ## apply cutoff at twice the filter width of what's resolved after aliasing 
-          self.DSmag_Filter_x[i] = 0.                            ## (e.g. N1=24 -> after aliasing N1=16, resolve to kc=8, then filter to kc = 4
-      self.DSmag_Filter_y[int(self.N2/3)::] = 0.               ## Do the same for chebyshev nodes. We don't need the divide by two
-                                                                 ## (e.g. N2=24 -> after aliasing N2=16, then cutoff 8:24
-      if (self.N3 == 2):
-        pass
-      else:                                                  
-        self.DSmag_Filter_z[int( (self.N3/2)/3. )::] = 0.         ## the same for z as in x. 
-
-      def DSmag_Filter(uhat):
-        uhat[:,:,:] = self.DSmag_Filter_x[:,None,None]*self.DSmag_Filter_y[None,:,None]*self.DSmag_Filter_z[None,None,:]*uhat
-        return uhat 
-      self.DSmag_Filter = DSmag_Filter
 
 class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
     self.N1,self.N2,self.N3 = N1,N2,N3
     self.nthreads = nthreads
+    self.uhatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
+    self.Uc_hatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
+
     if (fft_type == 'scipy'):
       if (mpi_rank == 0): 
         sys.stdout.write('Using scipy fft routines \n')
@@ -247,11 +101,11 @@ class FFTclass:
       self.Uc_hatT = np.zeros((N1,Npy,N3/2+1) ,dtype='complex')
       self.U_mpi = np.zeros((num_processes,Npx,Npy,N3/2+1),dtype='complex')
       def myifft3D(uhat,u):
-        uhatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
-        uhatmod[:,0,:] = uhat[:,0,:]
-        uhatmod[:,1:N2,:] = uhat[:,1::,:]/2
-        uhatmod[:,N2::,:] = np.fliplr(uhat)[:,1:-1,:]/2.
-        Uc_hattmp = np.fft.fft(uhatmod,axis=1) ##yes! actually the FFT! only god knows why
+        #uhatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
+        self.uhatmod[:,0,:] = uhat[:,0,:]
+        self.uhatmod[:,1:N2,:] = uhat[:,1::,:]/2
+        self.uhatmod[:,N2::,:] = np.fliplr(uhat)[:,1:-1,:]/2.
+        Uc_hattmp = np.fft.fft(self.uhatmod,axis=1) ##yes! actually the FFT! only god knows why
         self.Uc_hat[:,:,:] = Uc_hattmp[:,0:N2,:]
         self.U_mpi[:] = np.rollaxis(self.Uc_hat.reshape(Npx, num_processes, Npy, N3/2+1) ,1)
         comm.Alltoall(self.U_mpi,self.Uc_hatT)
@@ -261,11 +115,9 @@ class FFTclass:
         self.Uc_hatT[:,:,:] = np.fft.rfft2(u,axes=(0,2) ) / (N1 * N3)
         comm.Alltoall(self.Uc_hatT, self.U_mpi )
         self.Uc_hat[:,:,:] = np.rollaxis(self.U_mpi,1).reshape(self.Uc_hat.shape)
-        Uc_hatmod = np.zeros((Npx,2*(N2-1),N3/2+1),dtype='complex')
-        Uc_hatmod[:,0:N2,:] = self.Uc_hat[:,0:N2,:]
-        Uc_hatmod[:,N2:2*(N2-1),:] = np.fliplr(self.Uc_hat)[:,1:-1,:]
-        wtilde = np.fft.ifft(Uc_hatmod,axis=1) ## yes! actually the ifft. again, only god knows why
-        uhat = np.zeros((Npx,N2,N3/2+1),dtype='complex')
+        self.Uc_hatmod[:,0:N2,:] = self.Uc_hat[:,0:N2,:]
+        self.Uc_hatmod[:,N2:2*(N2-1),:] = np.fliplr(self.Uc_hat)[:,1:-1,:]
+        wtilde = np.fft.ifft(self.Uc_hatmod,axis=1) ## yes! actually the ifft. again, only god knows why
         uhat[:,0,:] = wtilde[:,0,:]
         uhat[:,1:-1,:] = wtilde[:,1:N2-1,:]*2.
         uhat[:,-1,:] = wtilde[:,N2-1,:]

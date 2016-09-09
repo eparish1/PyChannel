@@ -52,20 +52,27 @@ def checkDivergence(main,grid):
 def diff_y(fhat):
   N1,N2,N3 = np.shape(fhat) 
   fhat1 = np.zeros((N1,N2,N3),dtype='complex') 
-  for n in range(0,N2-1):
-    for p in range(n+1,N2,2):
-      fhat1[:,n,:] += fhat[:,p,:]*2.*p
+  #fhat1[:,N2-1,:] = 0  k = N2-1
+  fhat1[:,-2,:] = 2.*(N2-1)*fhat[:,-1,:] #k = N2-2
+  for k in range(N2-3,-1,-1):
+    fhat1[:,k,:] = fhat1[:,k+2,:] + 2.*(k+1)*fhat[:,k+1,:] 
   fhat1[:,0,:] = fhat1[:,0,:]/2.
   return fhat1
 
-def diff_y2(uhat):
-  N1,N2,N3 = np.shape(uhat)
-  uhat2 = np.zeros((N1,N2,N3),dtype='complex')
-  for n in range(0,N2-2):
-    for p in range(n+2,N2,2):
-      uhat2[:,n,:] += uhat[:,p,:]* p*(p**2 - n**2)
-  uhat2[:,0,:] = uhat2[:,0,:]/2
-  return uhat2
+def diff_y2(fhat):
+  N1,N2,N3 = np.shape(fhat) 
+  fhat1 = np.zeros((N1,N2,N3),dtype='complex') 
+  fhat2 = np.zeros((N1,N2,N3),dtype='complex') 
+  #fhat1[:,N2-1,:] = 0  k = N2-1
+  fhat1[:,-2,:] = 2.*(N2-1)*fhat[:,-1,:] #k = N2-2
+  for k in range(N2-3,-1,-1):
+    fhat1[:,k,:] = fhat1[:,k+2,:] + 2.*(k+1)*fhat[:,k+1,:] 
+  fhat1[:,0,:] = fhat1[:,0,:]/2.
+  fhat2[:,-3,:] = 2.*(N2-2)*fhat1[:,-2,:] #k = N2-3
+  for k in range(N2-4,-1,-1):
+    fhat2[:,k,:] = fhat2[:,k+2,:] + 2.*(k+1)*fhat1[:,k+1,:] 
+  fhat2[:,0,:] = fhat2[:,0,:]/2.
+  return fhat2
 
 
 def getRHS_vort(main,grid,myFFT):
@@ -73,39 +80,35 @@ def getRHS_vort(main,grid,myFFT):
   main.vhat = grid.dealias*main.vhat
   main.what = grid.dealias*main.what
   main.phat = grid.dealias*main.phat
-
+  #print(np.linalg.norm(diff_y2(main.uhat) - diff_y2_test(main.uhat) ) )
   myFFT.myifft3D(main.uhat,main.u)
-  myFFT.myifft3D(main.vhat,main.u)
-  myFFT.myifft3D(main.what,main.u)
+  myFFT.myifft3D(main.vhat,main.v)
+  myFFT.myifft3D(main.what,main.w)
 
   ## compute vorticity
-  main.omegahat_1[:] = diff_y(main.what) - 1j*grid.k3*main.vhat
-  main.omegahat_2[:] = 1j*grid.k3*main.uhat - 1j*grid.k1*main.what
-  main.omegahat_3[:] = 1j*grid.k1*main.vhat - diff_y(main.uhat)
+  main.omegahat[0] = diff_y(main.what) - 1j*grid.k3*main.vhat
+  main.omegahat[1] = 1j*grid.k3*main.uhat - 1j*grid.k1*main.what
+  main.omegahat[2] = 1j*grid.k1*main.vhat - diff_y(main.uhat)
 
-  myFFT.myifft3D(main.omegahat_1,main.omega_1)
-  myFFT.myifft3D(main.omegahat_2,main.omega_2)
-  myFFT.myifft3D(main.omegahat_3,main.omega_3)
+  myFFT.myifft3D(main.omegahat[0],main.omega[0])
+  myFFT.myifft3D(main.omegahat[1],main.omega[1])
+  myFFT.myifft3D(main.omegahat[2],main.omega[2])
 
-  main.NL[0] = w*omega2
-  main.NL[1] = v*omega3
-  main.NL[2] = u*omega3
-  main.NL[3] = w*omega1
-  main.NL[4] = v*omega1
-  main.NL[5] = u*omega2
-  main.NL[6] = 0.5*(u*u + v*v + w*w)
-
-  for i in range(0,7):
-    myFFT.myfft3D(main.NL[i],main.NLhat[i])
+  myFFT.myfft3D(main.w*main.omega[1] - main.v*main.omega[2] , main.NLhat[0] )
+  myFFT.myfft3D(main.u*main.omega[2] - main.w*main.omega[0] , main.NLhat[1] )
+  myFFT.myfft3D(main.v*main.omega[0] - main.u*main.omega[1] , main.NLhat[2] )
+  myFFT.myfft3D(0.5*(main.u*main.u + main.v*main.v + main.w*main.w) , main.NLhat[3]) 
+  for i in range(0,4):
+    #myFFT.myfft3D(main.NL[i],main.NLhat[i])
     main.NLhat[i] *= grid.dealias
  
-  main.RHS_explicit[0] = -( main.NLhat[0] - main.NLhat[1] + 1j*grid.k1*main.NLhat[6] ) - main.dP ### mean pressure gradient only
-  main.RHS_explicit[1] = -( main.NLhat[2] - main.NLhat[3] + diff_y(main.NLhat[6])    ) 
-  main.RHS_explicit[2] = -( main.NLhat[4] - main.NLhat[5] + 1j*grid.k3*main.NLhat[6] )  
+  main.RHS_explicit[0] = -( main.NLhat[0] + 1j*grid.k1*main.NLhat[3] ) - main.dP ### mean pressure gradient only
+  main.RHS_explicit[1] = -( main.NLhat[1] + diff_y(main.NLhat[3])    ) 
+  main.RHS_explicit[2] = -( main.NLhat[2] + 1j*grid.k3*main.NLhat[3] )  
 
   main.RHS_implicit[0] = main.nu*( -grid.ksqr*main.uhat + diff_y2(main.uhat) ) - 1j*grid.k1*main.phat
   main.RHS_implicit[1] = main.nu*( -grid.ksqr*main.vhat + diff_y2(main.vhat) ) - diff_y(main.phat)
-  main.RHS_implicit[2] = main.nu*( -grid.ksrq*main.what + diff_y2(main.what) ) - 1j*grid.k3*main.phat
+  main.RHS_implicit[2] = main.nu*( -grid.ksqr*main.what + diff_y2(main.what) ) - 1j*grid.k3*main.phat
 
 
 
@@ -214,13 +217,3 @@ def advance_AdamsCrank(main,grid,myFFT):
   I2 = np.eye( grid.N2*2/3)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
-  if (main.turb_model == 'FM1'):
-    main.w0_u[:,:,:,0] =  (main.w0_u[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[3] - \
-                          main.RHS_explicit_old[3]) + main.dt/2.*main.RHS_implicit[3] )\
-                          *main.tau0/(main.dt + main.tau0)
-    main.w0_v[:,:,:,0] =  (main.w0_v[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[4] - \
-                          main.RHS_explicit_old[4]) + main.dt/2.*main.RHS_implicit[4] )\
-                          *main.tau0/(main.dt + main.tau0)
-    main.w0_w[:,:,:,0] =  (main.w0_w[:,:,:,0] + main.dt/2.*(3.*main.RHS_explicit[5] - \
-                          main.RHS_explicit_old[5]) + main.dt/2.*main.RHS_implicit[5] )\
-                          *main.tau0/(main.dt + main.tau0)
