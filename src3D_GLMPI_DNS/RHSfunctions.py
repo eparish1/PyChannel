@@ -56,10 +56,10 @@ def checkDivergence(main,grid):
   what_z = 1j*grid.k3*main.what
   div = np.zeros(np.shape(main.uhat) ,dtype='complex')
   div[:,0:grid.N2/3*2-1,:] = (uhat_x[:,0:grid.N2/3*2-1,:] + vhat_y[:,0:grid.N2/3*2-1,:] + what_z[:,0:grid.N2/3*2-1,:])
-  clf()
-  plot(div[1,:,2])
-  ylim([-0.0001,0.0001])
-  pause(0.001)
+  #clf()
+  #plot(div[1,:,2])
+  #ylim([-0.0001,0.0001])
+  #pause(0.001)
   #div[:,-4::,:] = 0.
   #div[:,0:2,:] = 0.
   #div[0,:,0] = 0.
@@ -170,7 +170,7 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         #[ u0,v0,w0,ph0,u1,v1,w1,ph1,...,un,vn,wn]
         ## Form linear matrix for Crank Nicolson terms
         ## Now create RHS solution vector
-        RHS =  np.zeros((N2*2/3)*4-1,dtype='complex')
+        RHS =  np.zeros((N2*2/3)*4,dtype='complex')
         RHSu = np.zeros(N2*2/3,dtype='complex')
         RHSv = np.zeros(N2*2/3,dtype='complex')
         RHSw = np.zeros(N2*2/3,dtype='complex')
@@ -187,16 +187,16 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
                                        -(1.+main.nu*main.dt*grid.ksqr[i,0,k]*0.5)/(2.*ms[2::]+2.) )
         fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
         fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
-        LHSMATp = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
+        LHSMATp = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
         fill_diagonal(LHSMATp[2::,0:-2],main.dt*0.5*1j*cm[0:-2]/(2.*ms[2::]-2.) )
         fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) ) )
         fill_diagonal(LHSMATp[2::, 4::],main.dt*0.5*1j*1./(2.*ms[2::]+2.) )
-        LHSMATpv = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
+        LHSMATpv = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
         fill_diagonal(LHSMATpv[2::,1::],main.dt*0.5)
-        fill_diagonal(LHSMATpv[2::, 3::],-main.dt*0.5)
+        fill_diagonal(LHSMATpv[2::,3::],-main.dt*0.5)
      
 
-        LHSMAT = np.zeros(( (N2*2/3)*4-1,(N2*2/3)*4-1),dtype='complex')
+        LHSMAT = np.zeros(( (N2*2/3)*4,(N2*2/3)*4),dtype='complex')
         LHSMAT[0::4,0::4] = LHSMATu
         LHSMAT[1::4,1::4] = LHSMATu
         LHSMAT[2::4,2::4] = LHSMATu
@@ -204,10 +204,10 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         LHSMAT[1::4,3::4] = LHSMATpv
         LHSMAT[2::4,3::4] = grid.k3[i,0,k]*LHSMATp
         ##========== Continuity Equation ================
-        fill_diagonal(LHSMAT[3::4,0::4], 1j*grid.k1[i,0,k]*cm[0:-1] )
+        fill_diagonal(LHSMAT[3::4,0::4], 1j*grid.k1[i,0,k]*cm[:] )
         fill_diagonal(LHSMAT[3::4,8::4],-1j*grid.k1[i,0,k] )
         fill_diagonal(LHSMAT[3::4,5::4], 2.*ms[1::] )
-        fill_diagonal(LHSMAT[3::4,2::4], 1j*grid.k3[i,0,k]*cm[0:-1])
+        fill_diagonal(LHSMAT[3::4,2::4], 1j*grid.k3[i,0,k]*cm[:])
         fill_diagonal(LHSMAT[3::4,10::4],-1j*grid.k3[i,0,k])
   
         RHSu = np.append(RHSu,np.zeros(2))
@@ -234,7 +234,7 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         main.uhat[i,0:N2*2/3,k] = U[0::4]#*grid.dealias[0,:,0]
         main.vhat[i,0:N2*2/3,k] = U[1::4]#*grid.dealias[0,:,0]
         main.what[i,0:N2*2/3,k] = U[2::4]#*grid.dealias[0,:,0]
-        main.phat[i,0:N2*2/3-1,k] = U[3::4]#*grid.dealias[0,:,0]
+        main.phat[i,0:N2*2/3,k] = U[3::4]#*grid.dealias[0,:,0]
         #print(1j*grid.k1[i,0,k]*main.uhat[i,N2*2/3-2,k] + main.vhat[i,N2*2/3-1,k]*2.*(N2*2/3-1) + 1j*grid.k3[i,0,k]*main.what[i,N2*2/3-2,k] ) 
        # print(np.linalg.norm(dot(LHSMAT,U)[3::4] ) )
        # print(LHSMAT[-4,0::-7])
@@ -348,3 +348,18 @@ def advance_AdamsCrank(main,grid,myFFT):
   I2 = np.eye( grid.N2*2/3)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
+  if (main.computeStats == 1):
+    main.save_iterations += 1
+    main.Ubar[0] += np.mean(main.u,axis=(0,2))
+    main.Ubar[1] += np.mean(main.v,axis=(0,2))
+    main.Ubar[2] += np.mean(main.w,axis=(0,2))
+
+    main.uubar[0] += np.mean(main.u*main.u ,axis=(0,2))
+    main.uubar[1] += np.mean(main.v*main.v,axis=(0,2))
+    main.uubar[2] += np.mean(main.w*main.w,axis=(0,2))
+    main.uubar[3] += np.mean(main.u*main.v,axis=(0,2))
+    main.uubar[4] += np.mean(main.u*main.w,axis=(0,2))
+    main.uubar[5] += np.mean(main.v*main.w,axis=(0,2))
+
+
+

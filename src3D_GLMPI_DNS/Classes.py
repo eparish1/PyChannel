@@ -13,6 +13,7 @@ class variables:
     self.Re_tau = Re_tau
     self.pbar_x = -Re_tau**2*nu**2
     self.dP = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    np.savez('3DSolution/runinfo',Re_tau=Re_tau,nu=nu,dt=dt,et=et,turb_model=turb_model,tau0=tau0)
     myFFT.myfft3D(self.pbar_x*np.ones(np.shape(u)),self.dP)
 
     self.u = np.zeros((grid.N1,grid.Npy,grid.N3))
@@ -52,6 +53,10 @@ class variables:
       self.RHS_implicit =     np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
       self.getRHS = getRHS_vort
 
+    ## Stuff for stats
+    self.Ubar  = np.zeros((3,grid.Npy))
+    self.uubar = np.zeros((6,grid.Npy))
+    self.save_iterations = 0
 class gridclass:
   def __init__(self,N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model):
     self.Npx = int(float(N1 / num_processes))
