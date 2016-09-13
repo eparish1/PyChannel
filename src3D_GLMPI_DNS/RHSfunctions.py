@@ -40,13 +40,27 @@ def getA2Mat(N2):
   A2[0,:] = A2[0,:] /2.
   return A2
 
+def checkDivergence2(main,grid):
+  ms = np.linspace(0,grid.N2*2/3-1,grid.N2*2/3)
+  cm = np.ones(grid.N2*2/3)
+  cm[0] = 2.
+  div = np.zeros(np.shape(main.uhat) ,dtype='complex')
+  div[:,0:grid.N2*2/3-2,:] = 1j*grid.k1[:,0:grid.N2*2/3-2,:]*(cm[None,0:grid.N2*2/3-2,None]*main.uhat[:,0:grid.N2*2/3-2,:] - main.uhat[:,2:grid.N2*2/3,:]) + 2.*ms[None,1:grid.N2*2/3-1,None]*main.vhat[:,1:grid.N2*2/3-1,:] + \
+        1j*grid.k3[:,0:grid.N2*2/3-2,:]*(cm[None,0:grid.N2*2/3-2,None]*main.what[:,0:grid.N2*2/3-2,:] - main.what[:,2:grid.N2*2/3,:] ) 
+  return div
+
+
 def checkDivergence(main,grid):
   uhat_x = 1j*grid.k1*main.uhat
   vhat_y = diff_y(main.vhat)
   what_z = 1j*grid.k3*main.what
   div = np.zeros(np.shape(main.uhat) ,dtype='complex')
-  div[:,0:grid.N2/3*2,:] = (uhat_x[:,0:grid.N2/3*2,:] + vhat_y[:,0:grid.N2/3*2,:] + what_z[:,0:grid.N2/3*2,:])
-  div[:,-1,:] = 0.
+  div[:,0:grid.N2/3*2-1,:] = (uhat_x[:,0:grid.N2/3*2-1,:] + vhat_y[:,0:grid.N2/3*2-1,:] + what_z[:,0:grid.N2/3*2-1,:])
+  clf()
+  plot(div[1,:,2])
+  ylim([-0.0001,0.0001])
+  pause(0.001)
+  #div[:,-4::,:] = 0.
   #div[:,0:2,:] = 0.
   #div[0,:,0] = 0.
   return div
@@ -169,17 +183,17 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         LHSMATu[0,:] = 1.
         LHSMATu[1,:] = altarray
         fill_diagonal(LHSMATu[2::,2::],-main.nu*main.dt*ms[2::] \
-                                       -(1.+main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]*0.5)/(2.*ms[2::]-2.) \
-                                       -(1.+main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]*0.5)/(2.*ms[2::]+2.) )
-        fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]/2.) )
-        fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,2:N2*2/3,k]/2.) )
+                                       -(1.+main.nu*main.dt*grid.ksqr[i,0,k]*0.5)/(2.*ms[2::]-2.) \
+                                       -(1.+main.nu*main.dt*grid.ksqr[i,0,k]*0.5)/(2.*ms[2::]+2.) )
+        fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
+        fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
         LHSMATp = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
         fill_diagonal(LHSMATp[2::,0:-2],main.dt*0.5*1j*cm[0:-2]/(2.*ms[2::]-2.) )
-        fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]+2.) - 1./(2.*ms[2::]+2.) ) )
+        fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) ) )
         fill_diagonal(LHSMATp[2::, 4::],main.dt*0.5*1j*1./(2.*ms[2::]+2.) )
         LHSMATpv = np.zeros((grid.N2*2/3,grid.N2*2/3-1),dtype='complex')
         fill_diagonal(LHSMATpv[2::,1::],main.dt*0.5)
-        fill_diagonal(LHSMATpv[2::, 3::],main.dt*0.5)
+        fill_diagonal(LHSMATpv[2::, 3::],-main.dt*0.5)
      
 
         LHSMAT = np.zeros(( (N2*2/3)*4-1,(N2*2/3)*4-1),dtype='complex')
@@ -200,7 +214,6 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         RHSv = np.append(RHSv,np.zeros(2))
         RHSw = np.append(RHSw,np.zeros(2))
 
-        RHS[3::4] = 0.
         RHS[8::4] = (cm[0:-2]*RHSu[0:-4]  - RHSu[2:-2]) / (2.*ms[2::] - 2.)  - \
                             (RHSu[2:-2] - RHSu[4::] )/(2.*ms[2::] + 2.)
 
@@ -209,6 +222,8 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
 
         RHS[10::4] = (cm[0:-2]*RHSw[0:-4]  - RHSw[2:-2]) / (2.*ms[2::] - 2.)  - \
                             (RHSw[2:-2] - RHSw[4::] )/(2.*ms[2::] + 2.)
+
+        RHS[3::4] = 0.
 
         t1 = time.time() 
     #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
@@ -222,7 +237,8 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         main.phat[i,0:N2*2/3-1,k] = U[3::4]#*grid.dealias[0,:,0]
         #print(1j*grid.k1[i,0,k]*main.uhat[i,N2*2/3-2,k] + main.vhat[i,N2*2/3-1,k]*2.*(N2*2/3-1) + 1j*grid.k3[i,0,k]*main.what[i,N2*2/3-2,k] ) 
        # print(np.linalg.norm(dot(LHSMAT,U)[3::4] ) )
-       # main.LHSMAT = LHSMAT
+       # print(LHSMAT[-4,0::-7])
+        main.LHSMAT = LHSMAT
        # main.RHS = RHS
 
 

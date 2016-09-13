@@ -74,7 +74,7 @@ while (main.t < main.et):
       np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
       sys.stdout.write("===================================================================================== \n")
       sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )
-      #sys.stdout.write('Div = ' + str( np.linalg.norm(divG) )  + '\n')
+      sys.stdout.write('Div = ' + str( np.linalg.norm(divG) )  + '\n')
   
       sys.stdout.flush()
       
