@@ -36,6 +36,12 @@ class variables:
     self.phat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
 
     self.turb_model = turb_model
+
+    ## Stuff for stats
+    self.Ubar  = np.zeros((3,grid.Npy))
+    self.uubar = np.zeros((6,grid.Npy))
+    self.save_iterations = 0
+
     if (turb_model == 'DNS'):
       if (mpi_rank == 0):
         sys.stdout.write('Running with no SGS \n')

@@ -50,6 +50,7 @@ grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model)
 main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank)
 #====================================================================
 
+main.computeStats = computeStats
 main.iteration = iteration_start
 main.save_freq = save_freq
 
@@ -104,6 +105,31 @@ while (main.t < main.et):
       #gridToVTK(string, grid.xG,grid.yG,grid.zG, pointData = {"u" : np.real(uGlobal.transpose()) , \
       #  "v" : np.real(vGlobal.transpose()) , "w" : np.real(wGlobal.transpose()) } ) #, \
        #363       "p" : np.real(pdummy.transpose())} )
+
+    ### Collect stats
+    data1 = comm.gather(main.Ubar,root = 0)
+    data2 = comm.gather(main.uubar,root = 0)
+    if (mpi_rank == 0):
+      Ubar_global = np.empty((3,N2))
+      uubar_global = np.empty((6,N2))
+      for j in range(0,num_processes):
+        Ubar_global[ :,j*Npy:(j+1)*Npy] = data1[j][:,:]
+        uubar_global[:,j*Npy:(j+1)*Npy] = data2[j][:,:]
+
+      for i in range(0,3):
+        Ubar_global[i] =   Ubar_global[i]/(main.save_iterations + 1.e-90)
+      for i in range(0,6):
+        uubar_global[i] = uubar_global[i]/(main.save_iterations + 1.e-90)
+
+      rey_stress = np.zeros((6,grid.N2))
+      rey_stress[0] = uubar_global[0] - Ubar_global[0]*Ubar_global[0]
+      rey_stress[1] = uubar_global[1] - Ubar_global[1]*Ubar_global[1]
+      rey_stress[2] = uubar_global[2] - Ubar_global[2]*Ubar_global[2]
+      rey_stress[3] = uubar_global[3] - Ubar_global[0]*Ubar_global[1]
+      rey_stress[4] = uubar_global[4] - Ubar_global[0]*Ubar_global[2]
+      rey_stress[5] = uubar_global[5] - Ubar_global[1]*Ubar_global[2]
+      string = '3DSolution/Stats' + str(main.iteration)
+      np.savez(string,U = Ubar_global,rey_stress = rey_stress,y=grid.yG[0,:,0])
 
   #---------------------------------------------
   # advance by Adams Bashforth/Crank Nicolson
