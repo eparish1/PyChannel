@@ -24,6 +24,7 @@ class variables:
     self.w[:,:,:] = w[:,:,:]
     del w
 
+    np.savez('3DSolution/runinfo',Re_tau=Re_tau,nu=nu,dt=dt,et=et,turb_model=turb_model,tau0=tau0)
     self.uhat = np.zeros((grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
     self.uhat[:,:,:] = myFFT.myfft3D(self.u)
 

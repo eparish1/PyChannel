@@ -3,7 +3,6 @@ import scipy
 import time
 import sys
 import scipy.sparse.linalg
-from pylab import *
 import multiprocessing as mp
 import numpy as np
 from padding import separateModes
@@ -152,9 +151,9 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
       ## insert in the linear contribution for the momentum equations
       LHSMAT[0,:] = 1.
       LHSMAT[1,:] = altarray
-      fill_diagonal(LHSMAT[2::,2::],-main.nu*main.dt*ms[2::] -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) )
-      fill_diagonal(LHSMAT[2::,0:-2],cm[0:-2]/(2.*ms[2::] - 2.) )
-      fill_diagonal(LHSMAT[2::,4::],1./(2.*ms[2::]+2.) )
+      np.fill_diagonal(LHSMAT[2::,2::],-main.nu*main.dt*ms[2::] -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) )
+      np.fill_diagonal(LHSMAT[2::,0:-2],cm[0:-2]/(2.*ms[2::] - 2.) )
+      np.fill_diagonal(LHSMAT[2::,4::],1./(2.*ms[2::]+2.) )
       RHSu = np.append(RHSu,np.zeros(2))
       RHSw = np.append(RHSw,np.zeros(2))
 
@@ -182,18 +181,18 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         LHSMATu = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
         LHSMATu[0,:] = 1.
         LHSMATu[1,:] = altarray
-        fill_diagonal(LHSMATu[2::,2::],-main.nu*main.dt*ms[2::] \
+        np.fill_diagonal(LHSMATu[2::,2::],-main.nu*main.dt*ms[2::] \
                                        -(1.+main.nu*main.dt*grid.ksqr[i,0,k]*0.5)/(2.*ms[2::]-2.) \
                                        -(1.+main.nu*main.dt*grid.ksqr[i,0,k]*0.5)/(2.*ms[2::]+2.) )
-        fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
-        fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
+        np.fill_diagonal(LHSMATu[2::,0:-2],cm[0:-2]/(2.*ms[2::]-2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
+        np.fill_diagonal(LHSMATu[2::,4::],       1./(2.*ms[2::]+2.)*(1. + main.nu*main.dt*grid.ksqr[i,0,k]*0.5) )
         LHSMATp = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
-        fill_diagonal(LHSMATp[2::,0:-2],main.dt*0.5*1j*cm[0:-2]/(2.*ms[2::]-2.) )
-        fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) ) )
-        fill_diagonal(LHSMATp[2::, 4::],main.dt*0.5*1j*1./(2.*ms[2::]+2.) )
+        np.fill_diagonal(LHSMATp[2::,0:-2],main.dt*0.5*1j*cm[0:-2]/(2.*ms[2::]-2.) )
+        np.fill_diagonal(LHSMATp[2::, 2::],main.dt*0.5*1j*( -1./(2.*ms[2::]-2.) - 1./(2.*ms[2::]+2.) ) )
+        np.fill_diagonal(LHSMATp[2::, 4::],main.dt*0.5*1j*1./(2.*ms[2::]+2.) )
         LHSMATpv = np.zeros((grid.N2*2/3,grid.N2*2/3),dtype='complex')
-        fill_diagonal(LHSMATpv[2::,1::],main.dt*0.5)
-        fill_diagonal(LHSMATpv[2::,3::],-main.dt*0.5)
+        np.fill_diagonal(LHSMATpv[2::,1::],main.dt*0.5)
+        np.fill_diagonal(LHSMATpv[2::,3::],-main.dt*0.5)
      
 
         LHSMAT = np.zeros(( (N2*2/3)*4,(N2*2/3)*4),dtype='complex')
@@ -204,11 +203,11 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
         LHSMAT[1::4,3::4] = LHSMATpv
         LHSMAT[2::4,3::4] = grid.k3[i,0,k]*LHSMATp
         ##========== Continuity Equation ================
-        fill_diagonal(LHSMAT[3::4,0::4], 1j*grid.k1[i,0,k]*cm[:] )
-        fill_diagonal(LHSMAT[3::4,8::4],-1j*grid.k1[i,0,k] )
-        fill_diagonal(LHSMAT[3::4,5::4], 2.*ms[1::] )
-        fill_diagonal(LHSMAT[3::4,2::4], 1j*grid.k3[i,0,k]*cm[:])
-        fill_diagonal(LHSMAT[3::4,10::4],-1j*grid.k3[i,0,k])
+        np.fill_diagonal(LHSMAT[3::4,0::4], 1j*grid.k1[i,0,k]*cm[:] )
+        np.fill_diagonal(LHSMAT[3::4,8::4],-1j*grid.k1[i,0,k] )
+        np.fill_diagonal(LHSMAT[3::4,5::4], 2.*ms[1::] )
+        np.fill_diagonal(LHSMAT[3::4,2::4], 1j*grid.k3[i,0,k]*cm[:])
+        np.fill_diagonal(LHSMAT[3::4,10::4],-1j*grid.k3[i,0,k])
   
         RHSu = np.append(RHSu,np.zeros(2))
         RHSv = np.append(RHSv,np.zeros(2))

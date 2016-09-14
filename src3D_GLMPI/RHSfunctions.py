@@ -3,7 +3,6 @@ import scipy
 import time
 import sys
 import scipy.sparse.linalg
-from pylab import *
 import multiprocessing as mp
 import numpy as np
 from padding import separateModes
