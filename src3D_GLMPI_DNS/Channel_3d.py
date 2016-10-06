@@ -8,7 +8,6 @@ import sys
 from Classes import gridclass, FFTclass, variables
 from padding import *
 from RHSfunctions import *
-from pylab import *
 
 ## Check if variables exist
 #==============================================

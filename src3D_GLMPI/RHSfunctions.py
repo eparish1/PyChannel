@@ -1232,7 +1232,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
 def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
   for i in range(0,grid.Npx):
     if (abs(grid.k1[i,0,0]) <= grid.kcx): #don't bother solving for dealiased wave numbers
-       lineSolve2(main,grid,myFFT,i,I,I2)
+       lineSolve(main,grid,myFFT,i,I,I2)
 
 
 
