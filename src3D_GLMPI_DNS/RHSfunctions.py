@@ -7,9 +7,10 @@ import multiprocessing as mp
 import numpy as np
 from padding import separateModes
 
-import petsc4py, sys
-petsc4py.init(sys.argv)
-from petsc4py import PETSc
+#import petsc4py, sys
+#petsc4py.init(sys.argv)
+#from petsc4py import PETSc
+
 
 def allGather_physical(tmp_local,comm,mpi_rank,N1,N2,N3,num_processes,Npy):
   data = comm.gather(tmp_local,root = 0)
