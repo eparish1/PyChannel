@@ -6,6 +6,7 @@ import scipy.sparse.linalg
 import multiprocessing as mp
 import numpy as np
 from padding import separateModes
+#from pylab import *
 from mpi4py import MPI
 def allGather_physical(tmp_local,comm,mpi_rank,N1,N2,N3,num_processes,Npy):
   data = comm.gather(tmp_local,root = 0)
@@ -214,14 +215,21 @@ def getRHS_vort_dtau(main,grid,myFFT):
   mpi_rank = comm.Get_rank()
   tau_loc = comm.gather(tau,root = 0)
   if (mpi_rank == 0):
-    tau_total = 0
+    tau_total = np.zeros((grid.N2))
     for j in range(0,num_processes):
-      tau_total += tau_loc[j]
-    tau_total = tau_total / num_processes
+      tau_total[j*grid.Npy:(j+1)*grid.Npy] = tau_loc[j]
+    np.savez('3DSolution/tau',tau=tau_total)
+    tau_mean = np.mean(tau_total)
+    sys.stdout.write(str(tau_mean) + "\n")
+    sys.stdout.flush()
     for j in range(1,num_processes):
-      comm.send(tau_total, dest=j)
+      comm.send(tau_mean, dest=j)
   else:
-    tau_total = comm.recv(source=0)
+    tau_mean = comm.recv(source=0)
+
+    #plot(tau_total)
+    #pause(0.01)
+    #clf()
   #print(tau_total)
   # go to cheb space
 #  taumod = np.zeros(2*(grid.N2-1))
@@ -278,13 +286,13 @@ def getRHS_vort_dtau(main,grid,myFFT):
   #plot(real(taureal))
   #ylim([-20,20])
   #tau = 0.1
-  main.w0_u[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLu))
-  main.w0_v[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLv))
-  main.w0_w[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLw))
+  #main.w0_u[:,:,:,0] = myFFT.myfft3D(tau[None,:,None]*myFFT.myifft3D(PLQLu))
+  #main.w0_v[:,:,:,0] = myFFT.myfft3D(tau[None,:,None]*myFFT.myifft3D(PLQLv))
+  #main.w0_w[:,:,:,0] = myFFT.myfft3D(tau[None,:,None]*myFFT.myifft3D(PLQLw))
 
-  #main.w0_u[:,:,:,0] = tau*PLQLu
-  #main.w0_v[:,:,:,0] = tau*PLQLv
-  #main.w0_w[:,:,:,0] = tau*PLQLw
+  main.w0_u[:,:,:,0] = tau_mean*PLQLu
+  main.w0_v[:,:,:,0] = tau_mean*PLQLv
+  main.w0_w[:,:,:,0] = tau_mean*PLQLw
 
   main.RHS_explicit[0] = PLu[:,:,:] + main.w0_u[:,:,:,0]
   main.RHS_explicit[1] = PLv[:,:,:] + main.w0_v[:,:,:,0]
