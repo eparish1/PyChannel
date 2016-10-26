@@ -45,7 +45,8 @@ def checkDivergence(main,grid):
   vhat_y = diff_y(main.vhat)
   what_z = 1j*grid.k3*main.what
   div = np.zeros(np.shape(main.uhat) ,dtype='complex')
-  div[:,0:grid.N2/3*2-1,:] = (uhat_x[:,0:grid.N2/3*2-1,:] + vhat_y[:,0:grid.N2/3*2-1,:] + what_z[:,0:grid.N2/3*2-1,:])
+  div[:,0:grid.kcy_int-1,:] = (uhat_x[:,0:grid.kcy_int-1,:] + vhat_y[:,0:grid.kcy_int-1,:] + what_z[:,0:grid.kcy_int-1,:])
+  #div[:,0:grid.N2/2-1,:] = (uhat_x[:,0:grid.N2/2-1,:] + vhat_y[:,0:grid.N2/2-1,:] + what_z[:,0:grid.N2/2-1,:])
   div[:,-1,:] = 0.
   return div
 
@@ -194,20 +195,20 @@ def getRHS_vort_dtau(main,grid,myFFT):
   LuR = myFFT.myifft3D(grid.test_filter*Lu)
   LvR = myFFT.myifft3D(grid.test_filter*Lv)
   LwR = myFFT.myifft3D(grid.test_filter*Lw)
-  LE = mean(abs(uf)*abs(LuR) + abs(vf)*abs(LvR) + abs(wf)*abs(LwR),axis=(0,2))
-
+  LE = np.mean(abs(uf)*abs(LuR) + abs(vf)*abs(LvR) + abs(wf)*abs(LwR),axis=(0,2))
   PLQLuR = myFFT.myifft3D(grid.test_filter*PLQLu)
   PLQLvR = myFFT.myifft3D(grid.test_filter*PLQLv)
   PLQLwR = myFFT.myifft3D(grid.test_filter*PLQLw)
-  PLQLE = mean(abs(uf)*abs(PLQLuR) + abs(vf)*abs(PLQLvR) + abs(wf)*abs(PLQLwR),axis=(0,2))
+  PLQLE = np.mean(abs(uf)*abs(PLQLuR) + abs(vf)*abs(PLQLvR) + abs(wf)*abs(PLQLwR),axis=(0,2))
 
   P2LQLuR = myFFT.myifft3D(grid.test_filter*P2LQLu)
   P2LQLvR = myFFT.myifft3D(grid.test_filter*P2LQLv)
   P2LQLwR = myFFT.myifft3D(grid.test_filter*P2LQLw)
-  P2LQLE = mean(abs(uf)*abs(P2LQLuR) + abs(vf)*abs(P2LQLvR) + abs(wf)*abs(P2LQLwR),axis=(0,2))
+  P2LQLE = np.mean(abs(uf)*abs(P2LQLuR) + abs(vf)*abs(P2LQLvR) + abs(wf)*abs(P2LQLwR),axis=(0,2))
 
-  tau = mean (LE / (2.*P2LQLE - PLQLE) )
-
+  tau =  (LE / (2.*P2LQLE - PLQLE) )
+  #plot(tau)
+  #pause(0.01)
   comm = MPI.COMM_WORLD
   num_processes = comm.Get_size()
   mpi_rank = comm.Get_rank()
@@ -236,7 +237,8 @@ def getRHS_vort_dtau(main,grid,myFFT):
   #plot(grid.y[0,:,0]*utau/main.nu + (utau/main.nu),tau)
   #ylim([-1,1])
   #pause(0.001)
-  tau = mean(tau)
+  #tau = np.mean(tau)
+  #print(tau)
   ## Now compute energy up to test filter
 #  LE =(np.sum(Lu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
 #       np.sum(Lu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0)) + \
@@ -276,9 +278,13 @@ def getRHS_vort_dtau(main,grid,myFFT):
   #plot(real(taureal))
   #ylim([-20,20])
   #tau = 0.1
-  main.w0_u[:,:,:,0] = tau*PLQLu
-  main.w0_v[:,:,:,0] = tau*PLQLv
-  main.w0_w[:,:,:,0] = tau*PLQLw
+  main.w0_u[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLu))
+  main.w0_v[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLv))
+  main.w0_w[:,:,:,0] = myFFT.myfft3D(tau_total[None,:,None]*myFFT.myifft3D(PLQLw))
+
+  #main.w0_u[:,:,:,0] = tau*PLQLu
+  #main.w0_v[:,:,:,0] = tau*PLQLv
+  #main.w0_w[:,:,:,0] = tau*PLQLw
 
   main.RHS_explicit[0] = PLu[:,:,:] + main.w0_u[:,:,:,0]
   main.RHS_explicit[1] = PLv[:,:,:] + main.w0_v[:,:,:,0]
@@ -1023,6 +1029,276 @@ def getRHS_vort(main,grid,myFFT):
   main.RHS_implicit[1] = main.nu*(vhat_xx + vhat_yy + vhat_zz) - diff_y(main.phat)
   main.RHS_implicit[2] = main.nu*(what_xx + what_yy + what_zz) - 1j*grid.k3*main.phat
 
+
+def getRHS_vort_dtau_2(main,grid,myFFT):
+  def evalRHS(Uhat,grid,myFFT,main):
+    U = np.zeros((3,grid.N1,grid.Npy,grid.N3))
+    omega = np.zeros((3,grid.N1,grid.Npy,grid.N3))
+    omegahat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    U[0] = myFFT.myifft3D(Uhat[0])
+    U[1] = myFFT.myifft3D(Uhat[1])
+    U[2] = myFFT.myifft3D(Uhat[2])
+  
+    ## compute vorticity
+    omegahat[0] = diff_y(Uhat[2]) - 1j*grid.k3*Uhat[1]
+    omegahat[1] = 1j*grid.k3*Uhat[0] - 1j*grid.k1*Uhat[2]
+    omegahat[2] = 1j*grid.k1*Uhat[1] - diff_y(Uhat[0])
+ 
+    omega[0] = myFFT.myifft3D(omegahat[0])
+    omega[1] = myFFT.myifft3D(omegahat[1])
+    omega[2] = myFFT.myifft3D(omegahat[2])
+  
+    uu = U[0]*U[0]
+    vv = U[1]*U[1]
+    ww = U[2]*U[2]
+  
+    vom3 = U[1]*omega[2]
+    wom2 = U[2]*omega[1]
+    uom3 = U[0]*omega[2]
+    wom1 = U[2]*omega[0]
+    uom2 = U[0]*omega[1]
+    vom1 = U[1]*omega[0]
+  
+  
+    uuhat = myFFT.myfft3D(uu) 
+    vvhat = myFFT.myfft3D(vv) 
+    wwhat = myFFT.myfft3D(ww) 
+  
+    vom3_hat = myFFT.myfft3D(vom3) 
+    wom2_hat = myFFT.myfft3D(wom2) 
+    uom3_hat = myFFT.myfft3D(uom3) 
+    wom1_hat = myFFT.myfft3D(wom1) 
+    uom2_hat = myFFT.myfft3D(uom2) 
+    vom1_hat = myFFT.myfft3D(vom1) 
+  
+    vsqrhat = 0.5*( uuhat + vvhat + wwhat)
+
+    RHS_explicit = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    RHS_implicit = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    del2_Uhat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+
+    RHS_explicit[0] = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP ### mean pressure gradient only
+    RHS_explicit[1] = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )
+    RHS_explicit[2] = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )
+
+    for i in range(0,3):
+      del2_Uhat[i] = -grid.ksqr*Uhat[i] + diff_y2(Uhat[i])
+    RHS_implicit[0] = main.nu*del2_Uhat[0] - 1j*grid.k1*main.phat
+    RHS_implicit[1] = main.nu*del2_Uhat[1] - diff_y(main.phat)
+    RHS_implicit[2] = main.nu*del2_Uhat[2] - 1j*grid.k3*main.phat
+    return RHS_explicit,RHS_implicit
+  
+  def evalQL(Uhat,grid,myFFT,main,filter_mat):
+    UhatF = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    for i in range(0,3):
+      UhatF[i] = filter_mat*Uhat[i] 
+    RHS_explicit,RHS_implicit = evalRHS(Uhat,grid,myFFT,main) 
+    RHS = RHS_explicit + RHS_implicit
+    RHS_explicit,RHS_implicit = evalRHS(UhatF,grid,myFFT,main) 
+    RHS_F = RHS_explicit + RHS_implicit
+    F = RHS - RHS_F
+    return F
+
+  main.uhat = grid.dealias_2x*main.uhat
+  main.vhat = grid.dealias_2x*main.vhat
+  main.what = grid.dealias_2x*main.what
+  main.phat = grid.dealias_2x*main.phat
+
+  Uhat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+  Uhat[0] = main.uhat[:,:,:]
+  Uhat[1] = main.vhat[:,:,:]
+  Uhat[2] = main.what[:,:,:]
+  Uhat_f = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+  Uhat_f[0] = grid.test_filter*main.uhat[:,:,:]
+  Uhat_f[1] = grid.test_filter*main.vhat[:,:,:]
+  Uhat_f[2] = grid.test_filter*main.what[:,:,:]
+  main.RHS_explicit,main.RHS_implicit = evalRHS(Uhat,grid,myFFT,main)
+  RHS = main.RHS_explicit + main.RHS_implicit
+  RHSf_explicit,RHSf_implicit = evalRHS(Uhat_f,grid,myFFT,main)
+  RHS_f = RHSf_explicit + RHSf_implicit
+
+  RHSnorm = np.linalg.norm(RHS)
+  eps = 1.e-10
+  PLQLU   = evalQL(Uhat   + eps*RHS,grid,myFFT,main,grid.dealias_2x )/eps
+  PLQLU_f = evalQL(Uhat_f + eps*RHS_f,grid,myFFT,main,grid.test_filter)/eps
+  print(np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
+  LeonardStress = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+  for i in range(0,3):
+    LeonardStress[i] = grid.dealias_2x*(RHS_f[i] - RHS[i])
+  print(np.linalg.norm(LeonardStress),np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
+
+  ## Now compute energy up to test filter
+  LE = 0. + 0j
+  PLQLUE = 0. + 0j
+  PLQLU_fE = 0. + 0j
+
+  for i in range(0,3):
+    LE = LE +  np.sum(LeonardStress[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+             np.sum(LeonardStress[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
+
+    PLQLUE = PLQLUE +  np.sum(PLQLU[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+             np.sum(PLQLU[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
+
+    PLQLU_fE = PLQLU_fE +  np.sum(PLQLU_f[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+             np.sum(PLQLU_f[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
+ 
+  #print(LE) 
+  #tau =   np.real(LE ) / (np.real(0.5*PLQLUE)  - np.real(0.5*PLQLU_fE) + 1.e-100  )
+  #main.tau = np.real(tau)
+  #print(main.tau)
+
+  comm = MPI.COMM_WORLD
+  num_processes = comm.Get_size()
+  mpi_rank = comm.Get_rank()
+  LE_loc = comm.gather(LE,root = 0)
+  if (mpi_rank == 0):
+    LE_total = 0
+    for j in range(0,num_processes):
+      LE_total += LE_loc[j]
+    LE_total = LE_total / num_processes
+    for j in range(1,num_processes):
+      comm.send(LE_total, dest=j)
+  else:
+    LE_total = comm.recv(source=0)
+
+  PLQLUE_loc = comm.gather(PLQLUE,root = 0)
+  if (mpi_rank == 0):
+    PLQLUE_total = 0
+    for j in range(0,num_processes):
+      PLQLUE_total += PLQLUE_loc[j]
+    PLQLUE_total = PLQLUE_total / num_processes
+    for j in range(1,num_processes):
+      comm.send(PLQLUE_total, dest=j)
+  else:
+    PLQLUE_total = comm.recv(source=0)
+
+  PLQLUfE_loc = comm.gather(PLQLU_fE,root = 0)
+  if (mpi_rank == 0):
+    PLQLUfE_total = 0
+    for j in range(0,num_processes):
+      PLQLUfE_total += PLQLUfE_loc[j]
+    PLQLUfE_total = PLQLUfE_total / num_processes
+    for j in range(1,num_processes):
+      comm.send(PLQLUfE_total, dest=j)
+  else:
+    PLQLUfE_total = comm.recv(source=0)
+
+  tau =   np.real(LE_total ) / (np.real(0.5*PLQLUE_total)  - np.real(0.5*PLQLUfE_total) + 1.e-100  )
+  main.tau  = tau
+  if (mpi_rank == 0):
+        #print(main.tau)
+    print(abs(LE_total))
+    print(abs(PLQLUE_total))
+    print(abs(PLQLUfE_total))
+
+  main.w0_u = 0*grid.dealias_2x*main.tau*PLQLU[0]
+  main.w0_v = 0*grid.dealias_2x*main.tau*PLQLU[1]
+  main.w0_w = 0*grid.dealias_2x*main.tau*PLQLU[2]
+  for i in range(0,3):
+    main.RHS_explicit[i] = grid.dealias_2x*main.RHS_explicit[i]
+    main.RHS_implicit[i] = grid.dealias_2x*main.RHS_implicit[i]
+ #
+  main.RHS_explicit[0] += main.w0_u 
+  main.RHS_explicit[1] += main.w0_v 
+  main.RHS_explicit[2] += main.w0_w 
+
+
+def getRHS_vort_stau_2(main,grid,myFFT):
+  def evalRHS(Uhat,grid,myFFT,main):
+    U = np.zeros((3,grid.N1,grid.Npy,grid.N3))
+    omega = np.zeros((3,grid.N1,grid.Npy,grid.N3))
+    omegahat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    U[0] = myFFT.myifft3D(Uhat[0])
+    U[1] = myFFT.myifft3D(Uhat[1])
+    U[2] = myFFT.myifft3D(Uhat[2])
+  
+    ## compute vorticity
+    omegahat[0] = diff_y(Uhat[2]) - 1j*grid.k3*Uhat[1]
+    omegahat[1] = 1j*grid.k3*Uhat[0] - 1j*grid.k1*Uhat[2]
+    omegahat[2] = 1j*grid.k1*Uhat[1] - diff_y(Uhat[0])
+ 
+    omega[0] = myFFT.myifft3D(omegahat[0])
+    omega[1] = myFFT.myifft3D(omegahat[1])
+    omega[2] = myFFT.myifft3D(omegahat[2])
+  
+    uu = U[0]*U[0]
+    vv = U[1]*U[1]
+    ww = U[2]*U[2]
+  
+    vom3 = U[1]*omega[2]
+    wom2 = U[2]*omega[1]
+    uom3 = U[0]*omega[2]
+    wom1 = U[2]*omega[0]
+    uom2 = U[0]*omega[1]
+    vom1 = U[1]*omega[0]
+  
+  
+    uuhat = myFFT.myfft3D(uu) 
+    vvhat = myFFT.myfft3D(vv) 
+    wwhat = myFFT.myfft3D(ww) 
+  
+    vom3_hat = myFFT.myfft3D(vom3) 
+    wom2_hat = myFFT.myfft3D(wom2) 
+    uom3_hat = myFFT.myfft3D(uom3) 
+    wom1_hat = myFFT.myfft3D(wom1) 
+    uom2_hat = myFFT.myfft3D(uom2) 
+    vom1_hat = myFFT.myfft3D(vom1) 
+  
+    vsqrhat = 0.5*( uuhat + vvhat + wwhat)
+
+    RHS_explicit = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    RHS_implicit = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    del2_Uhat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+
+    RHS_explicit[0] = -( wom2_hat -vom3_hat + 1j*grid.k1*vsqrhat ) - main.dP ### mean pressure gradient only
+    RHS_explicit[1] = -( uom3_hat -wom1_hat + diff_y(vsqrhat)    )
+    RHS_explicit[2] = -( vom1_hat -uom2_hat + 1j*grid.k3*vsqrhat )
+
+    for i in range(0,3):
+      del2_Uhat[i] = -grid.ksqr*Uhat[i] + diff_y2(Uhat[i])
+    RHS_implicit[0] = main.nu*del2_Uhat[0] - 1j*grid.k1*main.phat
+    RHS_implicit[1] = main.nu*del2_Uhat[1] - diff_y(main.phat)
+    RHS_implicit[2] = main.nu*del2_Uhat[2] - 1j*grid.k3*main.phat
+    return RHS_explicit,RHS_implicit
+  
+  def evalQL(Uhat,grid,myFFT,main):
+    UhatF = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    UhatG = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+    for i in range(0,3):
+      UhatF[i] = grid.dealias_2x*Uhat[i] 
+    RHS_explicit,RHS_implicit = evalRHS(Uhat,grid,myFFT,main) 
+    RHS = RHS_explicit + RHS_implicit
+    RHS_explicit,RHS_implicit = evalRHS(UhatF,grid,myFFT,main) 
+    RHS_F = RHS_explicit + RHS_implicit
+    F = RHS - RHS_F
+    return F
+
+  main.uhat = grid.dealias_2x*main.uhat
+  main.vhat = grid.dealias_2x*main.vhat
+  main.what = grid.dealias_2x*main.what
+  main.phat = grid.dealias_2x*main.phat
+
+  Uhat = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
+  Uhat[0] = main.uhat[:,:,:]
+  Uhat[1] = main.vhat[:,:,:]
+  Uhat[2] = main.what[:,:,:]
+
+  main.RHS_explicit,main.RHS_implicit = evalRHS(Uhat,grid,myFFT,main)
+  RHS = main.RHS_explicit + main.RHS_implicit
+  #RHSnorm = np.linalg.norm(RHS)
+  eps = 1.e-5
+  PLQLU = evalQL(Uhat + eps*RHS,grid,myFFT,main)/eps
+  main.w0_u = grid.dealias_2x*main.tau0*PLQLU[0]
+  main.w0_v = grid.dealias_2x*main.tau0*PLQLU[1]
+  main.w0_w = grid.dealias_2x*main.tau0*PLQLU[2]
+  for i in range(0,3):
+    main.RHS_explicit[i] = grid.dealias_2x*main.RHS_explicit[i]
+    main.RHS_implicit[i] = grid.dealias_2x*main.RHS_implicit[i]
+ #
+  main.RHS_explicit[0] += main.w0_u 
+  main.RHS_explicit[1] += main.w0_v 
+  main.RHS_explicit[2] += main.w0_w 
+
 def lineSolve2(main,grid,myFFT,i,I,I2):
   N2 = grid.N2
   ms = np.linspace(0,grid.N2*2/3-1,grid.N2*2/3)
@@ -1138,6 +1414,95 @@ def lineSolve2(main,grid,myFFT,i,I,I2):
 
 
 
+def lineSolve_dealias2x(main,grid,myFFT,i,I,I2):
+  N2 = grid.N2
+  altarray = (-np.ones(grid.kcy_int))**(np.linspace(0,(grid.kcy_int)-1,grid.kcy_int))
+  for k in range(0,grid.N3/2+1):
+    if (grid.k1[i,0,k] == 0 and grid.k3[i,0,k] == 0):
+      ### By continuity vhat = 0, don't need to solve for it.
+      ### also by definition, p is the fixed pressure gradient, don't need to solve for it. 
+      ### Just need to find u and w
+      F = np.zeros((grid.kcy_int,grid.kcy_int),dtype='complex')
+      F[:,:] =  -main.nu*( grid.A2[:,:]  )
+      RHSu = np.zeros((grid.kcy_int),dtype='complex')
+      RHSu[:] = main.uhat[i,0:grid.kcy_int,k] + main.dt/2.*(3.*main.RHS_explicit[0,i,0:grid.kcy_int,k] - main.RHS_explicit_old[0,i,0:grid.kcy_int,k]) + \
+                main.dt/2.*( main.RHS_implicit[0,i,0:grid.kcy_int,k] )
+      RHSw = np.zeros((grid.kcy_int),dtype='complex')
+      RHSw[:] = main.what[i,0:grid.kcy_int,k] + main.dt/2.*(3.*main.RHS_explicit[2,i,0:grid.kcy_int,k] - main.RHS_explicit_old[2,i,0:grid.kcy_int,k]) + \
+                main.dt/2.*( main.RHS_implicit[2,i,0:grid.kcy_int,k] )
+
+      ## Now create entire LHS matrix
+      LHSMAT = np.zeros((grid.kcy_int,grid.kcy_int),dtype='complex')
+      ## insert in the linear contribution for the momentum equations
+      LHSMAT[:,:] = np.eye(grid.kcy_int) + 0.5*main.dt*F[:,:]
+      ## Finally setup boundary condtions
+      LHSMAT[-2,:] = 1.#*grid.dealias[0,:,0]
+      LHSMAT[-1,:] = altarray#*grid.dealias[0,:,0]
+      RHSu[-2::] = 0.
+      RHSw[-2::] = 0.
+      main.uhat[i,0:grid.kcy_int,k] = np.linalg.solve(LHSMAT,RHSu)
+      main.what[i,0:grid.kcy_int,k] = np.linalg.solve(LHSMAT,RHSw)
+      main.vhat[i,0:grid.kcy_int,k] = 0. 
+    else:
+      if (abs(grid.k3[i,0,k]) <= grid.kcz): # don't bother solving for dealiased wave numbers
+        t0 = time.time()
+        ## SOLUTION VECTOR LOOKS LIKE
+        #[ u0,v0,w0,ph0,u1,v1,w1,ph1,...,un,vn,wn]
+        ## Form linear matrix for Crank Nicolson terms
+        F = np.zeros(( (grid.kcy_int)*4-1,(grid.kcy_int)*4-1),dtype='complex')
+        #F = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
+        F[0::4,0::4] = -main.nu*( grid.A2[:,:] - grid.ksqr[i,0,k]*I2[:,:] )###Viscous terms
+        F[1::4,1::4] = F[0::4,0::4]  ### put into v eqn as well
+        F[2::4,2::4] = F[0::4,0::4]  ### put into w eqn as well
+        np.fill_diagonal( F[0::4,3::4],1j*grid.k1[i,0,k] )  ## now add pressure to u eqn
+        F[1:-2:4,3::4] = grid.A1p[:,:]                      ## v eqn
+        np.fill_diagonal( F[2::4,3::4],1j*grid.k3[i,0,k] )  ## w eqn
+   
+        ## Now create RHS solution vector
+        RHS = np.zeros(( (grid.kcy_int)*4-1),dtype='complex')
+        RHS[0::4] = main.uhat[i,0:grid.kcy_int,k] +  main.dt/2.*(3.*main.RHS_explicit[0,i,0:grid.kcy_int,k] - main.RHS_explicit_old[0,i,0:grid.kcy_int,k]) + main.dt/2.*main.RHS_implicit[0,i,0:grid.kcy_int,k]
+        RHS[1::4] = main.vhat[i,0:grid.kcy_int,k] +  main.dt/2.*(3.*main.RHS_explicit[1,i,0:grid.kcy_int,k] - main.RHS_explicit_old[1,i,0:grid.kcy_int,k]) + main.dt/2.*main.RHS_implicit[1,i,0:grid.kcy_int,k]
+        RHS[2::4] = main.what[i,0:grid.kcy_int,k] +  main.dt/2.*(3.*main.RHS_explicit[2,i,0:grid.kcy_int,k] - main.RHS_explicit_old[2,i,0:grid.kcy_int,k]) + main.dt/2.*main.RHS_implicit[2,i,0:grid.kcy_int,k]
+  
+        LHSMAT = np.zeros(( (grid.kcy_int)*4-1,(grid.kcy_int)*4-1),dtype='complex')
+        #LHSMAT = scipy.sparse.csc_matrix((grid.N2*4-1, grid.N2*4-1), dtype=complex).toarray()
+        ## insert in the linear contribution for the momentum equations
+        LHSMAT[:,:] = I + 0.5*main.dt*F[:,:]
+        ## Now add the continuity equation (evaluated at half grid points)
+        LHSMAT[3::4,:] = 0.
+        np.fill_diagonal( LHSMAT[3::4,0::4] , 1j*grid.k1[i,0,k] )  ##  du/dx
+        LHSMAT[3::4,1::4] = grid.A1[0:-1,:]                        ##  dv/dy
+        np.fill_diagonal( LHSMAT[3::4,2::4] , 1j*grid.k3[i,0,k] )  ##  dw/dz
+        ## Finally setup boundary condtions
+        RHS[-7::] = 0.
+        LHSMAT[-7,:] = 0.
+        LHSMAT[-6,:] = 0.
+        LHSMAT[-5,:] = 0.
+        LHSMAT[-3,:] = 0.
+        LHSMAT[-2,:] = 0.
+        LHSMAT[-1,:] = 0.
+    
+        LHSMAT[-7,0::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,0,0]
+        LHSMAT[-6,1::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,:,0]
+        LHSMAT[-5,2::4] = 1. / (grid.N1 * grid.N3) #* grid.dealias[0,:,0]
+        LHSMAT[-3,0::4] = altarray[0:grid.kcy_int] #* grid.dealias[0,:,0]
+        LHSMAT[-2,1::4] = altarray[0:grid.kcy_int] #* grid.dealias[0,:,0]
+        LHSMAT[-1,2::4] = altarray[0:grid.kcy_int] #* grid.dealias[0,:,0]
+
+  
+        t1 = time.time() 
+    #    solver = scipy.sparse.linalg.factorized( scipy.sparse.csc_matrix(LHSMAT))
+    #    U = solver(RHS)
+    #    U = np.linalg.solve(LHSMAT,RHS)
+        U = (scipy.sparse.linalg.spsolve( scipy.sparse.csc_matrix(LHSMAT),RHS, permc_spec="NATURAL") )
+    #    U = (scipy.sparse.linalg.bicgstab( scipy.sparse.csc_matrix(LHSMAT),RHS,tol=1e-14) )[0]
+        main.uhat[i,0:grid.kcy_int,k] = U[0::4]#*grid.dealias[0,:,0]
+        main.vhat[i,0:grid.kcy_int,k] = U[1::4]#*grid.dealias[0,:,0]
+        main.what[i,0:grid.kcy_int,k] = U[2::4]#*grid.dealias[0,:,0]
+        main.phat[i,0:grid.kcy_int-1,k] = U[3::4]#*grid.dealias[0,:,0]
+        main.LHSMAT = LHSMAT
+        main.RHS = RHS
+
 
 def lineSolve(main,grid,myFFT,i,I,I2):
   N2 = grid.N2
@@ -1232,7 +1597,7 @@ def lineSolve(main,grid,myFFT,i,I,I2):
 def solveBlock(main,grid,myFFT,I,I2,i_start,i_end):
   for i in range(0,grid.Npx):
     if (abs(grid.k1[i,0,0]) <= grid.kcx): #don't bother solving for dealiased wave numbers
-       lineSolve(main,grid,myFFT,i,I,I2)
+       lineSolve_dealias2x(main,grid,myFFT,i,I,I2)
 
 
 
@@ -1240,8 +1605,8 @@ def advance_AdamsCrank(main,grid,myFFT):
   main.RHS_explicit_old[:,:,:] = main.RHS_explicit[:,:,:]
   t1 = time.time() 
   main.getRHS(main,grid,myFFT)
-  I = np.eye( (grid.N2*2/3)*4-1)
-  I2 = np.eye( grid.N2*2/3)
+  I = grid.I#np.eye( (grid.N2/2)*4-1)
+  I2 = grid.I2#np.eye( grid.N2/2)
   t2 = time.time()
   solveBlock(main,grid,myFFT,I,I2,0,grid.N1)
   if (main.turb_model == 'FM1'):

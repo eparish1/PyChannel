@@ -77,7 +77,7 @@ class variables:
       self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.tau0 = tau0
-      self.getRHS = getRHS_vort_stau
+      self.getRHS = getRHS_vort_stau_2
 
     if (turb_model == 'dtau'):
       if (mpi_rank == 0):
@@ -163,9 +163,6 @@ class gridclass:
     k3 = np.fft.rfftfreq(N3,1./N3)*2.*np.pi/L3
     self.k1,k2,self.k3 = np.meshgrid(k1[mpi_rank*self.Npx:(mpi_rank+1)*self.Npx],k2,k3,indexing='ij')
     self.ksqr = self.k1*self.k1 + self.k3*self.k3 
-    self.A1  = getA1Mat(N2*2/3)
-    self.A1p = getA1Mat(N2*2/3-1)
-    self.A2  = getA2Mat(N2*2/3)
     self.xG = allGather_physical(self.x,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.yG = allGather_physical(self.y,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
     self.zG = allGather_physical(self.z,comm,mpi_rank,self.N1,self.N2,self.N3,num_processes,self.Npy)
@@ -176,50 +173,65 @@ class gridclass:
     self.dealias[:,   int( (self.N2)/3. *2. )::,:] = 0.
     self.dealias[:,:, int( (self.N3/2)*2./3. ):: ] = 0. 
 
+
+
     #============== Extra Stuff For DNS ========================
     if (turb_model == 'DNS' or turb_model == 'Smagorinsky'):  
       self.kcx = self.N1/3. * 2.*np.pi/L1
       self.kcz = self.N3/3. * 2.*np.pi/L3
+      self.kcy_int = int(self.N2*2./3.)
     #============== Extra Stuff for FM1 ========================
     if (turb_model == 'FM1'):
       self.kcx = self.N1/4. * 2.*np.pi/L1
       self.kcz = self.N3/4. * 2.*np.pi/L3
+      self.kcy_int = int(self.N2*2./3.)
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
           self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,   self.kcy_int::,:] = 0.
       self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
     #============== Extra Stuff for stau ========================
     if (turb_model == 'stau'):
       self.kcx = self.N1/4. * 2.*np.pi/L1
       self.kcz = self.N3/4. * 2.*np.pi/L3
+      self.kcy_int = int(self.N2/2.)
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
           self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
+      #self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,self.kcy_int::,:] = 0.
+      self.dealias_2x[:,:,int( (self.N3/4) ):: ] = 0. 
     #============== Extra Stuff for dtau ========================
     if (turb_model == 'dtau'):
+      test_scale = 2./3.
       self.kcx = self.N1/4. * 2.*np.pi/L1
       self.kcz = self.N3/4. * 2.*np.pi/L3
-      self.test_kcx = self.kcx/2
-      self.test_kcz = self.kcz/2
+      self.kcx_int = int( self.N1/4. ) 
+      self.kcz_int = int( self.N3/4. )
+      self.kcy_int = int( self.N2*2/3.  )
+
+      self.test_kcx = (self.kcx*test_scale)
+      #self.test_kcy = (self.kcx*3/2)
+      self.test_kcz = (self.kcz*test_scale)
+      self.test_kcx_int = int(self.kcx_int*test_scale)
+      self.test_kcy_int = int(self.kcy_int)
+      self.test_kcz_int = int(self.kcz_int*test_scale)
 
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
           self.dealias_2x[i,:,:] = 0.  
-      self.dealias_2x[:,   int( (self.N2)/3. *2. )::,:] = 0.
+      self.dealias_2x[:,   self.kcy_int::,:] = 0.
       self.dealias_2x[:,:, int( (self.N3/4) ):: ] = 0. 
 
       self.test_filter = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= self.test_kcx):
           self.test_filter[i,:,:] = 0.  
-      self.test_filter[:,   int( (self.N2)/3. *2. )::,:] = 0.
-      self.test_filter[:,:, int( (self.N3/8) ):: ] = 0. 
+      self.test_filter[:,self.test_kcy_int::,:] = 0.
+      self.test_filter[:,:,self.test_kcz_int:: ] = 0. 
     #============== Extra stuff for DSmag =====================
     if (turb_model == 'Dynamic Smagorinsky'):
       self.DSmag_Filter_x = np.ones(self.Npx)
@@ -227,6 +239,8 @@ class gridclass:
       self.DSmag_Filter_z = np.ones(self.N3/2+1)
       self.kcx = self.N1/3. * 2.*np.pi/L1
       self.kcz = self.N3/3. * 2.*np.pi/L3
+      self.kcy_int = int(self.N2*2./3.)
+
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/2)/3.*2.*np.pi/L1):  ## apply cutoff at twice the filter width of what's resolved after aliasing 
           self.DSmag_Filter_x[i] = 0.                            ## (e.g. N1=24 -> after aliasing N1=16, resolve to kc=8, then filter to kc = 4
@@ -241,6 +255,13 @@ class gridclass:
         uhat[:,:,:] = self.DSmag_Filter_x[:,None,None]*self.DSmag_Filter_y[None,:,None]*self.DSmag_Filter_z[None,None,:]*uhat
         return uhat 
       self.DSmag_Filter = DSmag_Filter
+
+    self.A1  = getA1Mat(self.kcy_int)
+    self.A1p = getA1Mat(self.kcy_int-1)
+    self.A2  = getA2Mat(self.kcy_int)
+    self.I =  np.eye( (self.kcy_int)*4-1)
+    self.I2 = np.eye(self.kcy_int)
+
 
 class FFTclass:
   def __init__(self,N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank):
