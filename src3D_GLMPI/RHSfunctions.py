@@ -6,7 +6,7 @@ import scipy.sparse.linalg
 import multiprocessing as mp
 import numpy as np
 from padding import separateModes
-#from pylab import *
+from pylab import *
 from mpi4py import MPI
 def allGather_physical(tmp_local,comm,mpi_rank,N1,N2,N3,num_processes,Npy):
   data = comm.gather(tmp_local,root = 0)
@@ -193,43 +193,44 @@ def getRHS_vort_dtau(main,grid,myFFT):
   wf = myFFT.myifft3D(grid.test_filter*main.what)
 
   # transfrom to real space to get tau
-  LuR = myFFT.myifft3D(grid.test_filter*Lu)
-  LvR = myFFT.myifft3D(grid.test_filter*Lv)
-  LwR = myFFT.myifft3D(grid.test_filter*Lw)
-  LE = np.mean(abs(uf)*abs(LuR) + abs(vf)*abs(LvR) + abs(wf)*abs(LwR),axis=(0,2))
-  PLQLuR = myFFT.myifft3D(grid.test_filter*PLQLu)
-  PLQLvR = myFFT.myifft3D(grid.test_filter*PLQLv)
-  PLQLwR = myFFT.myifft3D(grid.test_filter*PLQLw)
-  PLQLE = np.mean(abs(uf)*abs(PLQLuR) + abs(vf)*abs(PLQLvR) + abs(wf)*abs(PLQLwR),axis=(0,2))
-
-  P2LQLuR = myFFT.myifft3D(grid.test_filter*P2LQLu)
-  P2LQLvR = myFFT.myifft3D(grid.test_filter*P2LQLv)
-  P2LQLwR = myFFT.myifft3D(grid.test_filter*P2LQLw)
-  P2LQLE = np.mean(abs(uf)*abs(P2LQLuR) + abs(vf)*abs(P2LQLvR) + abs(wf)*abs(P2LQLwR),axis=(0,2))
-
-  tau =  (LE / (2.*P2LQLE - PLQLE) )
-  #plot(tau)
-  #pause(0.01)
+  #LuR = myFFT.myifft3D(grid.test_filter*Lu)
+  #LvR = myFFT.myifft3D(grid.test_filter*Lv)
+  #LwR = myFFT.myifft3D(grid.test_filter*Lw)
+  #LE = np.mean((uf)*(LuR) + (vf)*(LvR) + (wf)*(LwR),axis=(0,2))
+  #PLQLuR = myFFT.myifft3D(grid.test_filter*PLQLu)
+  #PLQLvR = myFFT.myifft3D(grid.test_filter*PLQLv)
+  #PLQLwR = myFFT.myifft3D(grid.test_filter*PLQLw)
+  #PLQLE = np.mean((uf)*(PLQLuR) +(vf)*(PLQLvR) + (wf)*(PLQLwR),axis=(0,2))
+#
+#  P2LQLuR = myFFT.myifft3D(grid.test_filter*P2LQLu)
+#  P2LQLvR = myFFT.myifft3D(grid.test_filter*P2LQLv)
+#  P2LQLwR = myFFT.myifft3D(grid.test_filter*P2LQLw)
+#  P2LQLE = np.mean((uf)*(P2LQLuR) + (vf)*(P2LQLvR) + (wf)*(P2LQLwR),axis=(0,2))
+#
+#  tau =  (LE / (PLQLE - P2LQLE) )
+#  #plot(tau)
+#  #pause(0.01)
   comm = MPI.COMM_WORLD
   num_processes = comm.Get_size()
   mpi_rank = comm.Get_rank()
-  tau_loc = comm.gather(tau,root = 0)
-  if (mpi_rank == 0):
-    tau_total = np.zeros((grid.N2))
-    for j in range(0,num_processes):
-      tau_total[j*grid.Npy:(j+1)*grid.Npy] = tau_loc[j]
-    np.savez('3DSolution/tau',tau=tau_total)
-    tau_mean = np.mean(tau_total)
-    sys.stdout.write(str(tau_mean) + "\n")
-    sys.stdout.flush()
-    for j in range(1,num_processes):
-      comm.send(tau_mean, dest=j)
-  else:
-    tau_mean = comm.recv(source=0)
+##  tau_loc = comm.gather(tau,root = 0)
+#  if (mpi_rank == 0):
+#    tau_total = np.zeros((grid.N2))
+#    for j in range(0,num_processes):
+#      tau_total[j*grid.Npy:(j+1)*grid.Npy] = tau_loc[j]
+#    np.savez('3DSolution/tau',tau=tau_total)
+#    tau_mean = np.mean(tau_total)
+#    sys.stdout.write(str(tau_mean) + "\n")
+#    sys.stdout.flush()
+#    #plot(tau_total)
+#    #pause(0.01)
+#    #clf()
+#
+#    for j in range(1,num_processes):
+#      comm.send(tau_mean, dest=j)
+#  else:
+#    tau_mean = comm.recv(source=0)
 
-    #plot(tau_total)
-    #pause(0.01)
-    #clf()
   #print(tau_total)
   # go to cheb space
 #  taumod = np.zeros(2*(grid.N2-1))
@@ -248,29 +249,62 @@ def getRHS_vort_dtau(main,grid,myFFT):
   #tau = np.mean(tau)
   #print(tau)
   ## Now compute energy up to test filter
-#  LE =(np.sum(Lu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(Lu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(Lv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(Lv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(Lw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(Lw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0)) )
-##
-#  PLQLE =(np.sum(PLQLu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(PLQLu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(PLQLv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(PLQLv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(PLQLw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(PLQLw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0)) )
+  LE =(np.sum(Lu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(Lu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(Lv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(Lv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(Lw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(Lw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0,1)) )
 #
-#  P2LQLE =(np.sum(P2LQLu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(P2LQLu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(P2LQLv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(P2LQLv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0)) + \
-#       np.sum(P2LQLw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,2) ) + \
-#       np.sum(P2LQLw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0)) )
+  PLQLE =(np.sum(PLQLu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(PLQLu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(PLQLv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(PLQLv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(PLQLw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(PLQLw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0,1)) )
+#
+  P2LQLE =(np.sum(P2LQLu[:,:,1:grid.N3/2]*np.conj(uhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(P2LQLu[:,:,0]*np.conj(uhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(P2LQLv[:,:,1:grid.N3/2]*np.conj(vhat_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(P2LQLv[:,:,0]*np.conj(vhat_filt[:,:,0]),axis=(0,1)) + \
+       np.sum(P2LQLw[:,:,1:grid.N3/2]*np.conj(what_filt[:,:,1:grid.N3/2]*2),axis=(0,1,2) ) + \
+       np.sum(P2LQLw[:,:,0]*np.conj(what_filt[:,:,0]),axis=(0,1)) )
+
+  LE_loc = comm.gather(LE,root = 0)
+  if (mpi_rank == 0):
+    LE_total = 0 + 0j#np.zeros((grid.N2),dtype='complex')
+    for j in range(0,num_processes):
+      LE_total += LE_loc[j]
+    for j in range(1,num_processes):
+      comm.send(LE_total, dest=j)
+  else:
+    LE_total = comm.recv(source=0)
+
+  PLQLE_loc = comm.gather(PLQLE,root = 0)
+  if (mpi_rank == 0):
+    PLQLE_total =  0 + 0j#np.zeros((grid.N2),dtype='complex')
+    for j in range(0,num_processes):
+      PLQLE_total += PLQLE_loc[j]
+    for j in range(1,num_processes):
+      comm.send(PLQLE_total, dest=j)
+  else:
+    PLQLE_total = comm.recv(source=0)
+
+  P2LQLE_loc = comm.gather(P2LQLE,root = 0)
+  if (mpi_rank == 0):
+    P2LQLE_total =  0 + 0j #np.zeros((grid.N2),dtype='complex')
+    for j in range(0,num_processes):
+      P2LQLE_total += P2LQLE_loc[j]
+    for j in range(1,num_processes):
+      comm.send(P2LQLE_total, dest=j)
+  else:
+    P2LQLE_total = comm.recv(source=0)
+
 #
 #  N2 = grid.N2
-  #tau =  np.real( LE ) / (np.real(P2LQLE)  - np.real(PLQLE) + 1e-60 )
+  tau =  np.real( LE_total ) / (np.real(PLQLE_total)  - np.real(P2LQLE_total) + 1e-60 )
+  if (mpi_rank == 0):
+    print('tau ' + str(tau))
   #utau = main.Re_tau*main.nu 
   #plot(grid.y[0,:,0]*utau/main.nu + (utau/main.nu),tau)
   #ylim([-1,1])
@@ -290,9 +324,9 @@ def getRHS_vort_dtau(main,grid,myFFT):
   #main.w0_v[:,:,:,0] = myFFT.myfft3D(tau[None,:,None]*myFFT.myifft3D(PLQLv))
   #main.w0_w[:,:,:,0] = myFFT.myfft3D(tau[None,:,None]*myFFT.myifft3D(PLQLw))
 
-  main.w0_u[:,:,:,0] = tau_mean*PLQLu
-  main.w0_v[:,:,:,0] = tau_mean*PLQLv
-  main.w0_w[:,:,:,0] = tau_mean*PLQLw
+  main.w0_u[:,:,:,0] = tau*PLQLu
+  main.w0_v[:,:,:,0] = tau*PLQLv
+  main.w0_w[:,:,:,0] = tau*PLQLw
 
   main.RHS_explicit[0] = PLu[:,:,:] + main.w0_u[:,:,:,0]
   main.RHS_explicit[1] = PLv[:,:,:] + main.w0_v[:,:,:,0]
