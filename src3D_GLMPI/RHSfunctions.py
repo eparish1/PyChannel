@@ -6,7 +6,6 @@ import scipy.sparse.linalg
 import multiprocessing as mp
 import numpy as np
 from padding import separateModes
-from pylab import *
 from mpi4py import MPI
 def allGather_physical(tmp_local,comm,mpi_rank,N1,N2,N3,num_processes,Npy):
   data = comm.gather(tmp_local,root = 0)
@@ -188,9 +187,9 @@ def getRHS_vort_dtau(main,grid,myFFT):
   Lv = grid.test_filter*(P2Lv - PLv)
   Lw = grid.test_filter*(P2Lw - PLw)
 
-  uf = myFFT.myifft3D(grid.test_filter*main.uhat)
-  vf = myFFT.myifft3D(grid.test_filter*main.vhat)
-  wf = myFFT.myifft3D(grid.test_filter*main.what)
+  #uf = myFFT.myifft3D(grid.test_filter*main.uhat)
+  #vf = myFFT.myifft3D(grid.test_filter*main.vhat)
+  #wf = myFFT.myifft3D(grid.test_filter*main.what)
 
   # transfrom to real space to get tau
   #LuR = myFFT.myifft3D(grid.test_filter*Lu)
