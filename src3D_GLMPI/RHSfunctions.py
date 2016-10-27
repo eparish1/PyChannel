@@ -1134,9 +1134,9 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
     for i in range(0,3):
       UhatF[i] = filter_mat*Uhat[i] 
     RHS_explicit,RHS_implicit = evalRHS(Uhat,grid,myFFT,main) 
-    RHS = RHS_explicit + RHS_implicit
+    RHS = RHS_explicit #+ RHS_implicit
     RHS_explicit,RHS_implicit = evalRHS(UhatF,grid,myFFT,main) 
-    RHS_F = RHS_explicit + RHS_implicit
+    RHS_F = RHS_explicit #+ RHS_implicit
     F = RHS - RHS_F
     return F
 
@@ -1154,19 +1154,19 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
   Uhat_f[1] = grid.test_filter*main.vhat[:,:,:]
   Uhat_f[2] = grid.test_filter*main.what[:,:,:]
   main.RHS_explicit,main.RHS_implicit = evalRHS(Uhat,grid,myFFT,main)
-  RHS = main.RHS_explicit + main.RHS_implicit
+  RHS = main.RHS_explicit# + main.RHS_implicit
   RHSf_explicit,RHSf_implicit = evalRHS(Uhat_f,grid,myFFT,main)
-  RHS_f = RHSf_explicit + RHSf_implicit
+  RHS_f = RHSf_explicit #+ RHSf_implicit
 
   RHSnorm = np.linalg.norm(RHS)
   eps = 1.e-10
   PLQLU   = evalQL(Uhat   + eps*RHS,grid,myFFT,main,grid.dealias_2x )/eps
   PLQLU_f = evalQL(Uhat_f + eps*RHS_f,grid,myFFT,main,grid.test_filter)/eps
-  print(np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
+  #print(np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
   LeonardStress = np.zeros((3,grid.Npx,grid.N2,grid.N3/2+1),dtype='complex')
   for i in range(0,3):
     LeonardStress[i] = grid.dealias_2x*(RHS_f[i] - RHS[i])
-  print(np.linalg.norm(LeonardStress),np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
+  #print(np.linalg.norm(LeonardStress),np.linalg.norm(PLQLU),np.linalg.norm(PLQLU_f))
 
   ## Now compute energy up to test filter
   LE = 0. + 0j
@@ -1224,24 +1224,25 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
   else:
     PLQLUfE_total = comm.recv(source=0)
 
-  tau =   np.real(LE_total ) / (np.real(0.5*PLQLUE_total)  - np.real(0.5*PLQLUfE_total) + 1.e-100  )
+  tau =   np.real(LE_total ) / (np.real(PLQLUE_total)  - np.real(PLQLUfE_total) + 1.e-100  )
   main.tau  = tau
   if (mpi_rank == 0):
-        #print(main.tau)
-    print(abs(LE_total))
-    print(abs(PLQLUE_total))
-    print(abs(PLQLUfE_total))
+        print(main.tau)
+    #print(abs(LE_total))
+    #print(abs(PLQLUE_total))
+    #print(abs(PLQLUfE_total))
 
-  main.w0_u = 0*grid.dealias_2x*main.tau*PLQLU[0]
-  main.w0_v = 0*grid.dealias_2x*main.tau*PLQLU[1]
-  main.w0_w = 0*grid.dealias_2x*main.tau*PLQLU[2]
+  main.w0_u[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[0]
+  main.w0_v[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[1]
+  main.w0_w[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[2]
   for i in range(0,3):
     main.RHS_explicit[i] = grid.dealias_2x*main.RHS_explicit[i]
     main.RHS_implicit[i] = grid.dealias_2x*main.RHS_implicit[i]
  #
-  main.RHS_explicit[0] += main.w0_u 
-  main.RHS_explicit[1] += main.w0_v 
-  main.RHS_explicit[2] += main.w0_w 
+  main.RHS_explicit[0] += main.w0_u[:,:,:,0] 
+  main.RHS_explicit[1] += main.w0_v[:,:,:,0] 
+  main.RHS_explicit[2] += main.w0_w[:,:,:,0] 
+
 
 
 def getRHS_vort_stau_2(main,grid,myFFT):

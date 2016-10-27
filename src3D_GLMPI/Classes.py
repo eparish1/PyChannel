@@ -89,7 +89,7 @@ class variables:
       self.w0_u = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.w0_v = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
       self.w0_w = np.zeros((grid.Npx,grid.N2,grid.N3/2+1,1),dtype='complex')
-      self.getRHS = getRHS_vort_dtau
+      self.getRHS = getRHS_vort_dtau_2
      
     if (turb_model == 'Smagorinsky'):
       if (mpi_rank == 0):
