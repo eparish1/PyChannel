@@ -79,7 +79,7 @@ while (main.t < main.et):
     uGlobal = allGather_physical(main.u,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     vGlobal = allGather_physical(main.v,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     wGlobal = allGather_physical(main.w,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
-    if (main.turb_model == 'FM1'):
+    if (main.turb_model == 'FM1' or main.turb_model == 'dtau'):
       wu = myFFT.myifft3D(main.w0_u[:,:,:,0] )
       wv = myFFT.myifft3D(main.w0_v[:,:,:,0] )
       ww = myFFT.myifft3D(main.w0_w[:,:,:,0] )
@@ -90,7 +90,7 @@ while (main.t < main.et):
     if (mpi_rank == 0):
       #string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
-      if (main.turb_model == 'FM1'):
+      if (main.turb_model == 'FM1' or main.turb_model == 'dtau'):
         np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal)
       else:
         np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
