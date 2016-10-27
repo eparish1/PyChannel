@@ -1224,7 +1224,7 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
   else:
     PLQLUfE_total = comm.recv(source=0)
 
-  tau =   np.real(LE_total ) / (np.real(PLQLUE_total)  - np.real(PLQLUfE_total) + 1.e-100  )
+  tau =   np.real(LE_total ) / (np.real(PLQLUE_total)  - 1.5*np.real(PLQLUfE_total) + 1.e-100  )
   main.tau  = tau
   if (mpi_rank == 0):
         print(main.tau)
