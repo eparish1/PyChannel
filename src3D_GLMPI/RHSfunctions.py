@@ -1173,30 +1173,29 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
   PLQLUE = 0. + 0j
   PLQLU_fE = 0. + 0j
 
+  LE = np.zeros(3,dtype='complex')
+  PLQLUE = np.zeros(3,dtype='complex')
+  PLQLU_fE = np.zeros(3,dtype='complex')
+
   for i in range(0,3):
-    LE = LE +  np.sum(LeonardStress[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+    LE[i] = LE[i] +  np.sum(LeonardStress[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
              np.sum(LeonardStress[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
 
-    PLQLUE = PLQLUE +  np.sum(PLQLU[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+    PLQLUE[i] = PLQLUE[i] +  np.sum(PLQLU[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
              np.sum(PLQLU[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
 
-    PLQLU_fE = PLQLU_fE +  np.sum(PLQLU_f[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
+    PLQLU_fE[i] = PLQLU_fE[i] +  np.sum(PLQLU_f[i,:,:,1:grid.N3/2]*np.conj(Uhat_f[i,:,:,1:grid.N3/2]*2) ) + \
              np.sum(PLQLU_f[i,:,:,0]*np.conj(Uhat_f[i,:,:,0]))
  
-  #print(LE) 
-  #tau =   np.real(LE ) / (np.real(0.5*PLQLUE)  - np.real(0.5*PLQLU_fE) + 1.e-100  )
-  #main.tau = np.real(tau)
-  #print(main.tau)
-
   comm = MPI.COMM_WORLD
   num_processes = comm.Get_size()
   mpi_rank = comm.Get_rank()
   LE_loc = comm.gather(LE,root = 0)
   if (mpi_rank == 0):
-    LE_total = 0
+    LE_total = np.zeros(3,dtype='complex')
     for j in range(0,num_processes):
-      LE_total += LE_loc[j]
-    LE_total = LE_total / num_processes
+      LE_total[:] += LE_loc[j]
+    LE_total[:] = LE_total[:] / num_processes
     for j in range(1,num_processes):
       comm.send(LE_total, dest=j)
   else:
@@ -1204,9 +1203,9 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
 
   PLQLUE_loc = comm.gather(PLQLUE,root = 0)
   if (mpi_rank == 0):
-    PLQLUE_total = 0
+    PLQLUE_total = np.zeros(3,dtype='complex')
     for j in range(0,num_processes):
-      PLQLUE_total += PLQLUE_loc[j]
+      PLQLUE_total[:] += PLQLUE_loc[j]
     PLQLUE_total = PLQLUE_total / num_processes
     for j in range(1,num_processes):
       comm.send(PLQLUE_total, dest=j)
@@ -1215,26 +1214,31 @@ def getRHS_vort_dtau_2(main,grid,myFFT):
 
   PLQLUfE_loc = comm.gather(PLQLU_fE,root = 0)
   if (mpi_rank == 0):
-    PLQLUfE_total = 0
+    PLQLUfE_total = np.zeros(3,dtype='complex')
     for j in range(0,num_processes):
-      PLQLUfE_total += PLQLUfE_loc[j]
+      PLQLUfE_total[:] += PLQLUfE_loc[j]
     PLQLUfE_total = PLQLUfE_total / num_processes
     for j in range(1,num_processes):
       comm.send(PLQLUfE_total, dest=j)
   else:
     PLQLUfE_total = comm.recv(source=0)
+  tau =   np.real( LE_total ) / (np.real(PLQLUE_total)  - 1.5*np.real(PLQLUfE_total) + 1.e-100  )
+  #LE_total = np.sum(LE_total)
+  #PLQLUE_total = np.sum(PLQLUE_total)
+  #PLQLUfE_total = np.sum(PLQLUfE_total)
 
-  tau =   np.real(LE_total ) / (np.real(PLQLUE_total)  - 1.5*np.real(PLQLUfE_total) + 1.e-100  )
+  #tau =   np.real( LE_total ) / (np.real(PLQLUE_total)  - 1.5*np.real(PLQLUfE_total) + 1.e-100  )
   main.tau  = tau
   if (mpi_rank == 0):
+        #print(tau0)
         print(main.tau)
     #print(abs(LE_total))
     #print(abs(PLQLUE_total))
     #print(abs(PLQLUfE_total))
 
-  main.w0_u[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[0]
-  main.w0_v[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[1]
-  main.w0_w[:,:,:,0] = grid.dealias_2x*main.tau*PLQLU[2]
+  main.w0_u[:,:,:,0] = grid.dealias_2x*main.tau[0]*PLQLU[0]
+  main.w0_v[:,:,:,0] = grid.dealias_2x*main.tau[1]*PLQLU[1]
+  main.w0_w[:,:,:,0] = grid.dealias_2x*main.tau[2]*PLQLU[2]
   for i in range(0,3):
     main.RHS_explicit[i] = grid.dealias_2x*main.RHS_explicit[i]
     main.RHS_implicit[i] = grid.dealias_2x*main.RHS_implicit[i]

@@ -211,12 +211,14 @@ class gridclass:
       self.kcx_int = int( self.N1/4. ) 
       self.kcz_int = int( self.N3/4. )
       self.kcy_int = int( self.N2*2/3.  )
+      #self.kcy_int = int( self.N2/2.  )
 
       self.test_kcx = (self.kcx*test_scale)
       #self.test_kcy = (self.kcx*3/2)
       self.test_kcz = (self.kcz*test_scale)
       self.test_kcx_int = int(self.kcx_int*test_scale)
       self.test_kcy_int = int(self.kcy_int)
+      #self.test_kcy_int = int(self.kcy_int*test_scale)
       self.test_kcz_int = int(self.kcz_int*test_scale)
 
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
