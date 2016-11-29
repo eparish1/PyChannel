@@ -75,11 +75,13 @@ while (main.t < main.et):
     main.u = myFFT.myifft3D(main.uhat)
     main.v = myFFT.myifft3D(main.vhat)
     main.w = myFFT.myifft3D(main.what)
+    p = myFFT.myifft3D(main.phat)
     divG = allGather_spectral(div,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npx)
+    pGlobal = allGather_physical(     p,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     uGlobal = allGather_physical(main.u,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     vGlobal = allGather_physical(main.v,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
     wGlobal = allGather_physical(main.w,comm,mpi_rank,grid.N1,grid.N2,grid.N3,num_processes,Npy)
-    if (main.turb_model == 'FM1' or main.turb_model == 'dtau'):
+    if (main.turb_model == 'FM1' or main.turb_model == 'dtau' or main.turb_model == 'stau'):
       wu = myFFT.myifft3D(main.w0_u[:,:,:,0] )
       wv = myFFT.myifft3D(main.w0_v[:,:,:,0] )
       ww = myFFT.myifft3D(main.w0_w[:,:,:,0] )
@@ -90,10 +92,10 @@ while (main.t < main.et):
     if (mpi_rank == 0):
       #string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
-      if (main.turb_model == 'FM1' or main.turb_model == 'dtau'):
-        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal)
+      if (main.turb_model == 'FM1' or main.turb_model == 'dtau' or main.turb_model =='stau'):
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,p=pGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal,phat=phatGlobal)
       else:
-        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal)
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,phat=phatGlobal)
       #main.p = myFFT.myifft3D(main.phat)
       sys.stdout.write("===================================================================================== \n")
       sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )
