@@ -35,6 +35,11 @@ if 'iteration_start' in globals():           #|
   pass                                       #|
 else:                                        #|
   iteration_start = 0                        #|
+if 'tstart_stats' in globals():           #|
+  pass                                       #|
+else:                                        #|
+  tstart_stats = 0                        #|
+
 #==============================================
 
 # Make Solution Directory if it does not exist
@@ -46,7 +51,7 @@ if (mpi_rank == 0):
 #=====================================================================
 myFFT = FFTclass(N1,N2,N3,nthreads,fft_type,Npx,Npy,num_processes,comm,mpi_rank)
 grid = gridclass(N1,N2,N3,x,y,z,kc,num_processes,L1,L3,mpi_rank,comm,turb_model)
-main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank)
+main = variables(grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank,tstart_stats)
 #====================================================================
 
 main.computeStats = computeStats
@@ -93,9 +98,9 @@ while (main.t < main.et):
       #string = '3DSolution/PVsol' + str(main.iteration)
       string2 = '3DSolution/npsol' + str(main.iteration)
       if (main.turb_model == 'FM1' or main.turb_model == 'dtau' or main.turb_model =='stau'):
-        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,p=pGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal,phat=phatGlobal)
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,p=pGlobal,w0_u=wuGlobal,w0_v=wvGlobal,w0_w=wwGlobal,tau=main.tau)
       else:
-        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,phat=phatGlobal)
+        np.savez(string2,u=uGlobal,v=vGlobal,w=wGlobal,p=pGlobal)
       #main.p = myFFT.myifft3D(main.phat)
       sys.stdout.write("===================================================================================== \n")
       sys.stdout.write('t = '  + str(main.t) + '   Wall time = ' + str(time.time() - t0) + '\n' )

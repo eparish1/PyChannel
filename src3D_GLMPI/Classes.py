@@ -4,7 +4,7 @@ import scipy
 from RHSfunctions import *
 
 class variables:
-  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank):
+  def __init__(self,grid,u,v,w,t,dt,et,nu,myFFT,Re_tau,turb_model,tau0,Cs,mpi_rank,tstart_stats):
     self.t = t
     self.kc = np.amax(grid.k1)
     self.dt = dt
@@ -13,9 +13,10 @@ class variables:
     self.Re_tau = Re_tau
     self.pbar_x = -Re_tau**2*nu**2
     self.dP = myFFT.myfft3D(self.pbar_x*np.ones(np.shape(u)))
-
+    self.tstart_stats = tstart_stats
     self.u = np.zeros((grid.N1,grid.Npy,grid.N3))
     self.u[:,:,:] = u[:,:,:]
+    self.tau = 0.
     del u
     self.v = np.zeros((grid.N1,grid.Npy,grid.N3))
     self.v[:,:,:] = v[:,:,:]
@@ -143,7 +144,7 @@ class variables:
       Delta[-1] = self.Delta[-2]
       ## add wall damping
       wall_dist = abs(abs(ydummy) - 1.)*self.Re_tau #y plus
-      Delta[:] = Delta* (1. - np.exp( -wall_dist / 25. ) ) 
+      Delta[:] = Delta#* (1. - np.exp( -wall_dist / 25. ) ) 
       sy = slice(mpi_rank*grid.Npy,(mpi_rank+1)*grid.Npy)
       self.Delta[:] = Delta[sy]
 
@@ -213,14 +214,23 @@ class gridclass:
       self.kcy_int = int( self.N2*2/3.  )
       #self.kcy_int = int( self.N2/2.  )
 
-      self.test_kcx = (self.kcx*test_scale)
+#      self.test_kcx = (self.kcx*test_scale)
+#      #self.test_kcy = (self.kcx*3/2)
+#      self.test_kcz = (self.kcz*test_scale)
+#      self.test_kcx_int = int(self.kcx_int*test_scale)
+#      self.test_kcy_int = int(self.kcy_int)
+#      #self.test_kcy_int = int(self.kcy_int*test_scale)
+#      self.test_kcz_int = int(self.kcz_int*test_scale)
+
+      self.test_kcx = self.kcx - 1.*2.*np.pi/L1
       #self.test_kcy = (self.kcx*3/2)
-      self.test_kcz = (self.kcz*test_scale)
-      self.test_kcx_int = int(self.kcx_int*test_scale)
+      self.test_kcz = self.kcz - 1.*2.*np.pi/L3
+      self.test_kcx_int = self.kcx_int - 1
       self.test_kcy_int = int(self.kcy_int)
       #self.test_kcy_int = int(self.kcy_int*test_scale)
-      self.test_kcz_int = int(self.kcz_int*test_scale)
+      self.test_kcz_int = int(self.kcz_int - 1)
 
+      print(self.kcx,self.test_kcx)
       self.dealias_2x = np.ones((self.Npx,N2,N3/2+1) )
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/4)*2.*np.pi/L1):
@@ -246,16 +256,17 @@ class gridclass:
       for i in range(0,self.Npx):
         if (abs(self.k1[i,0,0]) >= (self.N1/2)/3.*2.*np.pi/L1):  ## apply cutoff at twice the filter width of what's resolved after aliasing 
           self.DSmag_Filter_x[i] = 0.                            ## (e.g. N1=24 -> after aliasing N1=16, resolve to kc=8, then filter to kc = 4
-      self.DSmag_Filter_y[int(self.N2/3)::] = 0.               ## Do the same for chebyshev nodes. We don't need the divide by two
+      self.DSmag_Filter_y[int(self.N2*2/3)::] = 0.               ## Do the same for chebyshev nodes. We don't need the divide by two
                                                                  ## (e.g. N2=24 -> after aliasing N2=16, then cutoff 8:24
       if (self.N3 == 2):
         pass
       else:                                                  
-        self.DSmag_Filter_z[int( (self.N3/2)/3. )::] = 0.         ## the same for z as in x. 
+        self.DSmag_Filter_z[int( (self.N3/2)/3.)::] = 0.         ## the same for z as in x. 
 
       def DSmag_Filter(uhat):
-        uhat[:,:,:] = self.DSmag_Filter_x[:,None,None]*self.DSmag_Filter_y[None,:,None]*self.DSmag_Filter_z[None,None,:]*uhat
-        return uhat 
+        uhat_f = np.zeros(np.shape(uhat),dtype='complex')
+        uhat_f[:,:,:] = self.DSmag_Filter_x[:,None,None]*self.DSmag_Filter_y[None,:,None]*self.DSmag_Filter_z[None,None,:]*uhat[:,:,:]
+        return uhat_f 
       self.DSmag_Filter = DSmag_Filter
 
     self.A1  = getA1Mat(self.kcy_int)
